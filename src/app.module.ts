@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DevicesController } from './devices/devices.controller';
 import { DevicesService } from './devices/devices.service';
+import { DevicesModule } from './devices/devices.module';
 
 @Module({
   imports: [
@@ -25,8 +26,9 @@ import { DevicesService } from './devices/devices.service';
       }),
       inject: [ConfigService],
     }),
+    DevicesModule,
   ],
-  controllers: [AppController, DevicesController],
-  providers: [AppService, DevicesService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
