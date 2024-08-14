@@ -6,128 +6,124 @@ import {
   Param,
   HttpStatus,
   HttpException,
-  BadRequestException,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { ErrorCode } from '../common/enums/error-codes.enum';
 import { createApiResponse } from '../common/utils/response.util';
-import { DevicesService } from './devices.service';
 import { AuthenticateDeviceDto, RegisterDeviceDto } from './dto';
+import { DevicesService } from './devices.service';
+import { CryptoService } from './crypto.service';
+import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
 
 @Controller('devices')
 @UsePipes(new ValidationPipe({ transform: true }))
 export class DevicesController {
-  constructor(private readonly devicesService: DevicesService) {}
+  constructor(
+    private readonly devicesService: DevicesService,
+    private readonly cryptoService: CryptoService,
+  ) {}
 
   @Post('register')
   async register(@Body() registerDeviceDto: RegisterDeviceDto) {
-    console.log('registerDeviceDto', registerDeviceDto);
-    try {
-      const device = await this.devicesService.register(registerDeviceDto);
+    const result = await this.devicesService.register(registerDeviceDto);
+    if (result.success) {
       return createApiResponse({
         success: true,
-        message: 'Device registered successfully',
-        data: device,
+        message: result.message,
+        data: result.data,
       });
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw new HttpException(
-          createApiResponse({
-            success: false,
-            message: 'Failed to register device',
-            error: error.message,
-          }),
-          HttpStatus.BAD_REQUEST,
-        );
-      }
+    } else {
       throw new HttpException(
         createApiResponse({
           success: false,
-          message: 'Internal server error',
+          message: result.message,
+          error: result.errorCode,
         }),
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        mapErrorCodeToHttpStatus(result.errorCode),
       );
     }
   }
 
   @Post('authenticate')
   async authenticate(@Body() authenticateDeviceDto: AuthenticateDeviceDto) {
-    try {
-      const result = await this.devicesService.authenticate(authenticateDeviceDto);
-      if (result.success) {
-        return createApiResponse({
-          success: true,
-          message: result.message,
-        });
-      } else {
-        throw new HttpException(
-          createApiResponse({
-            success: false,
-            message: 'Authentication failed',
-            error: result.message,
-          }),
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-    } catch (error) {
+    const result = await this.devicesService.authenticate(authenticateDeviceDto);
+    if (result.success) {
+      return createApiResponse({
+        success: true,
+        message: result.message,
+      });
+    } else {
       throw new HttpException(
         createApiResponse({
           success: false,
-          message: 'Authentication failed',
+          message: result.message,
+          error: result.errorCode,
         }),
-        HttpStatus.UNAUTHORIZED,
+        mapErrorCodeToHttpStatus(result.errorCode),
       );
     }
   }
 
   @Get('list')
   async getDeviceList() {
-    try {
-      const devices = await this.devicesService.getDeviceList();
+    const result = await this.devicesService.getDeviceList();
+    if (result.success) {
       return createApiResponse({
         success: true,
-        message: 'Devices retrieved successfully',
-        data: devices,
+        message: result.message,
+        data: result.data,
       });
-    } catch (error) {
+    } else {
       throw new HttpException(
         createApiResponse({
           success: false,
-          message: 'Internal server error',
+          message: result.message,
+          error: result.errorCode,
         }),
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        mapErrorCodeToHttpStatus(result.errorCode),
       );
     }
   }
 
-  @Get(':id')
-  async getDevice(@Param('id') id: string) {
-    try {
-      const device = await this.devicesService.getDevice(+id);
-      if (!device) {
-        throw new HttpException(
-          createApiResponse({
-            success: false,
-            message: 'Device not found',
-          }),
-          HttpStatus.NOT_FOUND,
-        );
-      }
+  @Get('id/:id')
+  async getDeviceById(@Param('id') id: string) {
+    const result = await this.devicesService.getDeviceById(+id);
+    if (result.success) {
       return createApiResponse({
         success: true,
-        message: 'Device found',
-        data: device,
+        message: result.message,
+        data: result.data,
       });
-    } catch (error) {
-      if (error.status === HttpStatus.NOT_FOUND) {
-        throw error;
-      }
+    } else {
       throw new HttpException(
         createApiResponse({
           success: false,
-          message: 'Internal server error',
+          message: result.message,
+          error: result.errorCode,
         }),
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        mapErrorCodeToHttpStatus(result.errorCode),
+      );
+    }
+  }
+
+  @Get(':deviceId')
+  async getDeviceByDeviceId(@Param('deviceId') deviceId: string) {
+    const result = await this.devicesService.getDeviceByDeviceId(deviceId);
+    if (result.success) {
+      return createApiResponse({
+        success: true,
+        message: result.message,
+        data: result.data,
+      });
+    } else {
+      throw new HttpException(
+        createApiResponse({
+          success: false,
+          message: result.message,
+          error: result.errorCode,
+        }),
+        mapErrorCodeToHttpStatus(result.errorCode),
       );
     }
   }
