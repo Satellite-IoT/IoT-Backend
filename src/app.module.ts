@@ -28,7 +28,7 @@ import { DevicesModule } from './devices/devices.module';
     }),
     DevicesModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}

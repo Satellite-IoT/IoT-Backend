@@ -9,6 +9,7 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
 import { ErrorCode } from '../common/enums/error-codes.enum';
 import { createApiResponse } from '../common/utils/response.util';
 import { AuthenticateDeviceDto, RegisterDeviceDto } from './dto';
@@ -16,6 +17,7 @@ import { DevicesService } from './devices.service';
 import { CryptoService } from './crypto.service';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
 
+@ApiTags('devices')
 @Controller('devices')
 @UsePipes(new ValidationPipe({ transform: true }))
 export class DevicesController {
@@ -25,6 +27,10 @@ export class DevicesController {
   ) {}
 
   @Post('register')
+  @ApiOperation({ summary: 'Register a new device' })
+  @ApiBody({ type: RegisterDeviceDto })
+  @ApiResponse({ status: 201, description: 'The device has been successfully registered.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
   async register(@Body() registerDeviceDto: RegisterDeviceDto) {
     const result = await this.devicesService.register(registerDeviceDto);
     if (result.success) {
@@ -46,6 +52,10 @@ export class DevicesController {
   }
 
   @Post('authenticate')
+  @ApiOperation({ summary: 'Authenticate a device' })
+  @ApiBody({ type: AuthenticateDeviceDto })
+  @ApiResponse({ status: 200, description: 'The device has been successfully authenticated.' })
+  @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async authenticate(@Body() authenticateDeviceDto: AuthenticateDeviceDto) {
     const result = await this.devicesService.authenticate(authenticateDeviceDto);
     if (result.success) {
@@ -66,6 +76,8 @@ export class DevicesController {
   }
 
   @Get('list')
+  @ApiOperation({ summary: 'Get a list of all devices' })
+  @ApiResponse({ status: 200, description: 'Returns the list of all devices.' })
   async getDeviceList() {
     const result = await this.devicesService.getDeviceList();
     if (result.success) {
@@ -87,6 +99,10 @@ export class DevicesController {
   }
 
   @Get('id/:id')
+  @ApiOperation({ summary: 'Get a device by ID' })
+  @ApiParam({ name: 'id', type: 'number' })
+  @ApiResponse({ status: 200, description: 'Returns the device information.' })
+  @ApiResponse({ status: 404, description: 'Device not found.' })
   async getDeviceById(@Param('id') id: string) {
     const result = await this.devicesService.getDeviceById(+id);
     if (result.success) {
@@ -108,6 +124,10 @@ export class DevicesController {
   }
 
   @Get(':deviceId')
+  @ApiOperation({ summary: 'Get a device by device ID' })
+  @ApiParam({ name: 'deviceId', type: 'string' })
+  @ApiResponse({ status: 200, description: 'Returns the device information.' })
+  @ApiResponse({ status: 404, description: 'Device not found.' })
   async getDeviceByDeviceId(@Param('deviceId') deviceId: string) {
     const result = await this.devicesService.getDeviceByDeviceId(deviceId);
     if (result.success) {
