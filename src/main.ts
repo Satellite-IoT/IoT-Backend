@@ -9,15 +9,16 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const apiVersion = configService.get<string>('API_VERSION') || 'v1';
 
-  app.setGlobalPrefix(`api/${apiVersion}`);
-
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('IOT-Server')
     .setVersion(apiVersion)
+    .addServer(`/api/${apiVersion}`, `API ${apiVersion}`)
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api-docs', app, document);
+
+  app.setGlobalPrefix(`api/${apiVersion}`);
 
   app.enableCors();
   await app.listen(configService.get<number>('PORT') || 3002);
