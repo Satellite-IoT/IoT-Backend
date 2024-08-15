@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsIP } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AuthenticateDeviceDto {
@@ -25,4 +25,11 @@ export class AuthenticateDeviceDto {
   @IsString()
   @IsNotEmpty()
   deviceId: string;
+
+  @ApiProperty({
+    description: 'The IP address of the device',
+    example: '192.168.1.100',
+  })
+  @IsIP()
+  ipAddr: string;
 }

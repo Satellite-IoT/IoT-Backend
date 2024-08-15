@@ -16,7 +16,7 @@ export class DevicesService {
   ) {}
 
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
-    const { publicKey, deviceId } = registerDeviceDto;
+    const { publicKey, deviceId, ipAddr } = registerDeviceDto;
     const existingDevice = await this.deviceRepository.findOne({ where: { deviceId } });
 
     if (existingDevice) {
@@ -27,7 +27,12 @@ export class DevicesService {
       };
     }
 
-    const device = this.deviceRepository.create({ publicKey, deviceId });
+    const device = this.deviceRepository.create({
+      publicKey,
+      deviceId,
+      ipAddr,
+    });
+
     const savedDevice = await this.deviceRepository.save(device);
     return {
       success: true,
@@ -37,7 +42,7 @@ export class DevicesService {
   }
 
   async authenticate(authenticateDeviceDto: AuthenticateDeviceDto): Promise<ServiceResult<void>> {
-    const { signature, deviceType, deviceId } = authenticateDeviceDto;
+    const { signature, deviceType, deviceId, ipAddr } = authenticateDeviceDto;
     const device = await this.deviceRepository.findOne({ where: { deviceId } });
 
     if (!device) {
@@ -54,6 +59,7 @@ export class DevicesService {
     if (isValid) {
       device.isAuthenticated = true;
       device.deviceType = deviceType;
+      device.ipAddr = ipAddr;
       await this.deviceRepository.save(device);
       return { success: true, message: 'Device authenticated successfully' };
     } else {

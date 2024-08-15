@@ -14,6 +14,9 @@ export class Device {
   @Column({ nullable: true })
   deviceType: string;
 
+  @Column({ nullable: true })
+  ipAddr: string;
+
   @Column({ default: false })
   isAuthenticated: boolean;
 
