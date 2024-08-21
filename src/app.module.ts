@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { DevicesController } from './devices/devices.controller';
 import { DevicesService } from './devices/devices.service';
 import { DevicesModule } from './devices/devices.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { DevicesModule } from './devices/devices.module';
       inject: [ConfigService],
     }),
     DevicesModule,
+    EventsModule,
   ],
   controllers: [],
   providers: [],
