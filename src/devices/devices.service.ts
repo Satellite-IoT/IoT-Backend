@@ -118,7 +118,7 @@ export class DevicesService {
     return { success: true, message: 'Device found', data: device };
   }
 
-  async getDeviceList(): Promise<ServiceResult<(Device & { status: string })[]>> {
+  async getDeviceList(): Promise<ServiceResult<Device[]>> {
     const devices = await this.deviceRepository.find();
     const now = new Date();
     const devicesWithStatus = devices.map((device) => ({
