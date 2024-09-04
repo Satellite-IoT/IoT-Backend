@@ -9,5 +9,6 @@ import { CryptoService } from './crypto.service';
   imports: [TypeOrmModule.forFeature([Device])],
   controllers: [DevicesController],
   providers: [DevicesService, CryptoService],
+  exports: [DevicesService],
 })
 export class DevicesModule {}
