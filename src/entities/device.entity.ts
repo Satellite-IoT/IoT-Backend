@@ -17,8 +17,23 @@ export class Device {
   @Column({ nullable: true })
   ipAddr: string;
 
+  @Column({ nullable: true })
+  host: string;
+
+  @Column({ nullable: true })
+  loginUser: string;
+
+  @Column({ default: 'unknown' })
+  status: string;
+
+  @Column({ default: false })
+  isRegistered: boolean;
+
   @Column({ default: false })
   isAuthenticated: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastAuthenticated: Date;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
