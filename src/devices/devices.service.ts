@@ -15,6 +15,22 @@ export class DevicesService {
     private cryptoService: CryptoService,
   ) {}
 
+  private static readonly DEFAULT_TIMEOUT_MS = 60 * 1000; // 1 minute in milliseconds
+
+  private getDeviceConnectionStatus(device: Device, currentTime: Date): 'connected' | 'disconnected' | 'unknown' {
+    if (!device.isRegistered) {
+      return 'unknown';
+    }
+
+    if (!device.lastAuthenticated) {
+      return 'disconnected';
+    }
+
+    return currentTime.getTime() - device.lastAuthenticated.getTime() <= DevicesService.DEFAULT_TIMEOUT_MS
+      ? 'connected'
+      : 'disconnected';
+  }
+
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
     const { publicKey, deviceId, ipAddr } = registerDeviceDto;
     const existingDevice = await this.deviceRepository.findOne({ where: { deviceId } });
@@ -31,6 +47,8 @@ export class DevicesService {
       publicKey,
       deviceId,
       ipAddr,
+      status: 'disconnected', // Set the initial status to 'disconnected'
+      isRegistered: true,
     });
 
     const savedDevice = await this.deviceRepository.save(device);
@@ -60,6 +78,7 @@ export class DevicesService {
       device.isAuthenticated = true;
       device.deviceType = deviceType;
       device.ipAddr = ipAddr;
+      device.lastAuthenticated = new Date();
       await this.deviceRepository.save(device);
       return { success: true, message: 'Device authenticated successfully' };
     } else {
@@ -80,6 +99,8 @@ export class DevicesService {
         errorCode: ErrorCode.DEVICE_NOT_FOUND,
       };
     }
+    const now = new Date();
+    device.status = this.getDeviceConnectionStatus(device, now);
     return { success: true, message: 'Device found', data: device };
   }
 
@@ -92,11 +113,23 @@ export class DevicesService {
         errorCode: ErrorCode.DEVICE_NOT_FOUND,
       };
     }
+    const now = new Date();
+    device.status = this.getDeviceConnectionStatus(device, now);
     return { success: true, message: 'Device found', data: device };
   }
 
-  async getDeviceList(): Promise<ServiceResult<Device[]>> {
+  async getDeviceList(): Promise<ServiceResult<(Device & { status: string })[]>> {
     const devices = await this.deviceRepository.find();
-    return { success: true, message: 'Devices retrieved successfully', data: devices };
+    const now = new Date();
+    const devicesWithStatus = devices.map((device) => ({
+      ...device,
+      status: this.getDeviceConnectionStatus(device, now),
+    }));
+
+    return {
+      success: true,
+      message: 'Devices retrieved successfully',
+      data: devicesWithStatus,
+    };
   }
 }
