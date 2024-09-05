@@ -95,6 +95,32 @@ export class DevicesService {
     }
   }
 
+  async deleteDeviceByDeviceId(deviceId: string): Promise<ServiceResult<void>> {
+    const device = await this.deviceRepository.findOne({ where: { deviceId } });
+
+    if (!device) {
+      return {
+        success: false,
+        message: 'Device not found',
+        errorCode: ErrorCode.DEVICE_NOT_FOUND,
+      };
+    }
+
+    try {
+      await this.deviceRepository.remove(device);
+      return {
+        success: true,
+        message: 'Device deleted successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to delete device',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+    }
+  }
+
   async getDeviceById(id: number): Promise<ServiceResult<Device>> {
     const device = await this.deviceRepository.findOne({ where: { id } });
     if (!device) {

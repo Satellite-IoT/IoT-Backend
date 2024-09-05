@@ -75,6 +75,30 @@ export class DevicesController {
     }
   }
 
+  @Post('delete/:deviceId')
+  @ApiOperation({ summary: 'Delete a device by device ID' })
+  @ApiParam({ name: 'deviceId', type: 'string' })
+  @ApiResponse({ status: 200, description: 'The device has been successfully deleted.' })
+  @ApiResponse({ status: 404, description: 'Device not found.' })
+  async deleteDeviceByDeviceId(@Param('deviceId') deviceId: string) {
+    const result = await this.devicesService.deleteDeviceByDeviceId(deviceId);
+    if (result.success) {
+      return createApiResponse({
+        success: true,
+        message: result.message,
+      });
+    } else {
+      throw new HttpException(
+        createApiResponse({
+          success: false,
+          message: result.message,
+          error: result.errorCode,
+        }),
+        mapErrorCodeToHttpStatus(result.errorCode),
+      );
+    }
+  }
+
   @Get('list')
   @ApiOperation({ summary: 'Get a list of all devices' })
   @ApiResponse({ status: 200, description: 'Returns the list of all devices.' })
