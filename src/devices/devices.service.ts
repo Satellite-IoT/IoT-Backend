@@ -32,7 +32,7 @@ export class DevicesService {
   }
 
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
-    const { publicKey, deviceId, ipAddr } = registerDeviceDto;
+    const { publicKey, deviceId, ...optionalFields } = registerDeviceDto;
     const existingDevice = await this.deviceRepository.findOne({ where: { deviceId } });
 
     if (existingDevice) {
@@ -43,12 +43,17 @@ export class DevicesService {
       };
     }
 
+    const allowedFields = ['ipAddr', 'deviceName', 'flowControlLevel'];
+
     const device = this.deviceRepository.create({
       publicKey,
       deviceId,
-      ipAddr,
-      status: 'disconnected', // Set the initial status to 'disconnected'
+      status: 'disconnected',
       isRegistered: true,
+      ...Object.entries(optionalFields).reduce(
+        (acc, [key, value]) => (allowedFields.includes(key) && value !== undefined ? { ...acc, [key]: value } : acc),
+        {},
+      ),
     });
 
     const savedDevice = await this.deviceRepository.save(device);

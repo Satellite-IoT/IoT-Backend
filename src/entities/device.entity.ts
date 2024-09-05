@@ -1,4 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { FlowControlLevel } from 'src/common/enums';
 
 @Entity()
 export class Device {
@@ -13,6 +14,16 @@ export class Device {
 
   @Column({ nullable: true })
   deviceType: string;
+
+  @Column({ nullable: true })
+  deviceName: string;
+
+  @Column({
+    type: 'enum',
+    enum: FlowControlLevel,
+    default: FlowControlLevel.MEDIUM,
+  })
+  flowControlLevel: FlowControlLevel;
 
   @Column({ nullable: true })
   ipAddr: string;
