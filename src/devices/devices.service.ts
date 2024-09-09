@@ -5,7 +5,7 @@ import { Device } from 'src/entities';
 import { ErrorCode } from 'src/common/enums/error-codes.enum';
 import { ServiceResult } from 'src/common/types';
 import { CryptoService } from './crypto.service';
-import { AuthenticateDeviceDto, RegisterDeviceDto } from './dto';
+import { AuthenticateDeviceDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
 
 @Injectable()
 export class DevicesService {
@@ -15,8 +15,24 @@ export class DevicesService {
     private cryptoService: CryptoService,
   ) {}
 
+  private static readonly DEFAULT_TIMEOUT_MS = 60 * 1000; // 1 minute in milliseconds
+
+  private getDeviceConnectionStatus(device: Device, currentTime: Date): 'connected' | 'disconnected' | 'unknown' {
+    if (!device.isRegistered) {
+      return 'unknown';
+    }
+
+    if (!device.lastAuthenticated) {
+      return 'disconnected';
+    }
+
+    return currentTime.getTime() - device.lastAuthenticated.getTime() <= DevicesService.DEFAULT_TIMEOUT_MS
+      ? 'connected'
+      : 'disconnected';
+  }
+
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
-    const { publicKey, deviceId, ipAddr } = registerDeviceDto;
+    const { publicKey, deviceId, ...optionalFields } = registerDeviceDto;
     const existingDevice = await this.deviceRepository.findOne({ where: { deviceId } });
 
     if (existingDevice) {
@@ -27,10 +43,17 @@ export class DevicesService {
       };
     }
 
+    const allowedFields = ['ipAddr', 'deviceName', 'flowControlLevel'];
+
     const device = this.deviceRepository.create({
       publicKey,
       deviceId,
-      ipAddr,
+      status: 'disconnected',
+      isRegistered: true,
+      ...Object.entries(optionalFields).reduce(
+        (acc, [key, value]) => (allowedFields.includes(key) && value !== undefined ? { ...acc, [key]: value } : acc),
+        {},
+      ),
     });
 
     const savedDevice = await this.deviceRepository.save(device);
@@ -60,6 +83,7 @@ export class DevicesService {
       device.isAuthenticated = true;
       device.deviceType = deviceType;
       device.ipAddr = ipAddr;
+      device.lastAuthenticated = new Date();
       await this.deviceRepository.save(device);
       return { success: true, message: 'Device authenticated successfully' };
     } else {
@@ -67,6 +91,32 @@ export class DevicesService {
         success: false,
         message: 'Authentication failed',
         errorCode: ErrorCode.AUTHENTICATION_FAILED,
+      };
+    }
+  }
+
+  async deleteDeviceByDeviceId(deviceId: string): Promise<ServiceResult<void>> {
+    const device = await this.deviceRepository.findOne({ where: { deviceId } });
+
+    if (!device) {
+      return {
+        success: false,
+        message: 'Device not found',
+        errorCode: ErrorCode.DEVICE_NOT_FOUND,
+      };
+    }
+
+    try {
+      await this.deviceRepository.remove(device);
+      return {
+        success: true,
+        message: 'Device deleted successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to delete device',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
       };
     }
   }
@@ -80,6 +130,8 @@ export class DevicesService {
         errorCode: ErrorCode.DEVICE_NOT_FOUND,
       };
     }
+    const now = new Date();
+    device.status = this.getDeviceConnectionStatus(device, now);
     return { success: true, message: 'Device found', data: device };
   }
 
@@ -92,11 +144,52 @@ export class DevicesService {
         errorCode: ErrorCode.DEVICE_NOT_FOUND,
       };
     }
+    const now = new Date();
+    device.status = this.getDeviceConnectionStatus(device, now);
     return { success: true, message: 'Device found', data: device };
   }
 
   async getDeviceList(): Promise<ServiceResult<Device[]>> {
     const devices = await this.deviceRepository.find();
-    return { success: true, message: 'Devices retrieved successfully', data: devices };
+    const now = new Date();
+    const devicesWithStatus = devices.map((device) => ({
+      ...device,
+      status: this.getDeviceConnectionStatus(device, now),
+    }));
+
+    return {
+      success: true,
+      message: 'Devices retrieved successfully',
+      data: devicesWithStatus,
+    };
+  }
+
+  async updateDevice(deviceId: string, updateDeviceDto: UpdateDeviceDto): Promise<ServiceResult<Device>> {
+    const device = await this.deviceRepository.findOne({ where: { deviceId } });
+
+    if (!device) {
+      return {
+        success: false,
+        message: 'Device not found',
+        errorCode: ErrorCode.DEVICE_NOT_FOUND,
+      };
+    }
+
+    Object.assign(device, updateDeviceDto);
+
+    try {
+      const updatedDevice = await this.deviceRepository.save(device);
+      return {
+        success: true,
+        message: 'Device updated successfully',
+        data: updatedDevice,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to update device',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+    }
   }
 }
