@@ -5,7 +5,7 @@ import { Device } from 'src/entities';
 import { ErrorCode } from 'src/common/enums/error-codes.enum';
 import { ServiceResult } from 'src/common/types';
 import { CryptoService } from './crypto.service';
-import { AuthenticateDeviceDto, RegisterDeviceDto } from './dto';
+import { AuthenticateDeviceDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
 
 @Injectable()
 export class DevicesService {
@@ -162,5 +162,34 @@ export class DevicesService {
       message: 'Devices retrieved successfully',
       data: devicesWithStatus,
     };
+  }
+
+  async updateDevice(deviceId: string, updateDeviceDto: UpdateDeviceDto): Promise<ServiceResult<Device>> {
+    const device = await this.deviceRepository.findOne({ where: { deviceId } });
+
+    if (!device) {
+      return {
+        success: false,
+        message: 'Device not found',
+        errorCode: ErrorCode.DEVICE_NOT_FOUND,
+      };
+    }
+
+    Object.assign(device, updateDeviceDto);
+
+    try {
+      const updatedDevice = await this.deviceRepository.save(device);
+      return {
+        success: true,
+        message: 'Device updated successfully',
+        data: updatedDevice,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: 'Failed to update device',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+    }
   }
 }
