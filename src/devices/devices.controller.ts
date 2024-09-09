@@ -10,11 +10,12 @@ import {
   ValidationPipe,
   Delete,
   Patch,
+  Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
-import { ErrorCode } from '../common/enums/error-codes.enum';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
+import { ErrorCode, SortField, SortOrder } from 'src/common/enums';
 import { createApiResponse } from '../common/utils/response.util';
-import { AuthenticateDeviceDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
+import { AuthenticateDeviceDto, GetDeviceListDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
 import { DevicesService } from './devices.service';
 import { CryptoService } from './crypto.service';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
@@ -78,10 +79,15 @@ export class DevicesController {
   }
 
   @Get('list')
-  @ApiOperation({ summary: 'Get a list of all devices' })
-  @ApiResponse({ status: 200, description: 'Returns the list of all devices.' })
-  async getDeviceList() {
-    const result = await this.devicesService.getDeviceList();
+  @ApiOperation({ summary: 'Get a list of devices with pagination, filtering, and sorting' })
+  @ApiResponse({ status: 200, description: 'Returns the list of devices.' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'includePqcGateway', required: false, type: Boolean })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortOrder', required: false, type: String })
+  async getDeviceList(@Query() getDeviceListDto: GetDeviceListDto) {
+    const result = await this.devicesService.getDeviceList(getDeviceListDto);
     if (result.success) {
       return createApiResponse({
         success: true,
