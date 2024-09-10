@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Device } from 'src/entities';
-import { ErrorCode } from 'src/common/enums/error-codes.enum';
+import { ErrorCode, SortField } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { CryptoService } from './crypto.service';
-import { AuthenticateDeviceDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
+import { AuthenticateDeviceDto, GetDeviceListDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
 
 @Injectable()
 export class DevicesService {
@@ -29,6 +29,10 @@ export class DevicesService {
     return currentTime.getTime() - device.lastAuthenticated.getTime() <= DevicesService.DEFAULT_TIMEOUT_MS
       ? 'connected'
       : 'disconnected';
+  }
+
+  private isValidSortField(field: SortField): boolean {
+    return Object.values(SortField).includes(field);
   }
 
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
@@ -149,8 +153,37 @@ export class DevicesService {
     return { success: true, message: 'Device found', data: device };
   }
 
-  async getDeviceList(): Promise<ServiceResult<Device[]>> {
-    const devices = await this.deviceRepository.find();
+  async getDeviceList(
+    getDeviceListDto: GetDeviceListDto,
+  ): Promise<ServiceResult<{ devices: Device[]; total: number }>> {
+    console.log('getDeviceListDto', getDeviceListDto);
+    const { page, limit, includePqcGateway, sortBy, sortOrder } = getDeviceListDto;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.deviceRepository.createQueryBuilder('device');
+
+    if (includePqcGateway === false) {
+      queryBuilder.andWhere(`(device.deviceType != :pqcGatewayType OR device.deviceType IS NULL)`, {
+        pqcGatewayType: 'pqc-gateway',
+      });
+    }
+
+    // Add sorting
+    if (this.isValidSortField(sortBy)) {
+      if (['lastAuthenticated', 'createdAt', 'updatedAt'].includes(sortBy)) {
+        // For date fields, use NULLS LAST to handle null values
+        queryBuilder
+          .orderBy(`CASE WHEN device.${sortBy} IS NULL THEN 1 ELSE 0 END`, 'ASC')
+          .addOrderBy(`device.${sortBy}`, sortOrder);
+      } else {
+        queryBuilder.orderBy(`device.${sortBy}`, sortOrder);
+      }
+    } else {
+      queryBuilder.orderBy('device.id', 'ASC'); // Default sorting
+    }
+
+    const [devices, total] = await queryBuilder.skip(skip).take(limit).getManyAndCount();
+
     const now = new Date();
     const devicesWithStatus = devices.map((device) => ({
       ...device,
@@ -160,7 +193,10 @@ export class DevicesService {
     return {
       success: true,
       message: 'Devices retrieved successfully',
-      data: devicesWithStatus,
+      data: {
+        devices: devicesWithStatus,
+        total,
+      },
     };
   }
 
