@@ -36,6 +36,16 @@ export class DevicesService {
     return Object.values(SortField).includes(field);
   }
 
+  private async getDeviceWithUpdatedStatus(device: Device): Promise<Device> {
+    const currentTime = new Date();
+    const newStatus = this.getDeviceConnectionStatus(device, currentTime);
+    if (device.status !== newStatus) {
+      device.status = newStatus;
+      await this.deviceRepository.save(device);
+    }
+    return device;
+  }
+
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
     const { publicKey, deviceId, ...optionalFields } = registerDeviceDto;
     let device = await this.deviceRepository.findOne({ where: { deviceId } });
@@ -143,9 +153,8 @@ export class DevicesService {
         errorCode: ErrorCode.DEVICE_NOT_FOUND,
       };
     }
-    const now = new Date();
-    device.status = this.getDeviceConnectionStatus(device, now);
-    return { success: true, message: 'Device found', data: device };
+    const updatedDevice = await this.getDeviceWithUpdatedStatus(device);
+    return { success: true, message: 'Device found', data: updatedDevice };
   }
 
   async getDeviceByDeviceId(deviceId: string): Promise<ServiceResult<Device>> {
@@ -157,15 +166,13 @@ export class DevicesService {
         errorCode: ErrorCode.DEVICE_NOT_FOUND,
       };
     }
-    const now = new Date();
-    device.status = this.getDeviceConnectionStatus(device, now);
-    return { success: true, message: 'Device found', data: device };
+    const updatedDevice = await this.getDeviceWithUpdatedStatus(device);
+    return { success: true, message: 'Device found', data: updatedDevice };
   }
 
   async getDeviceList(
     getDeviceListDto: GetDeviceListDto,
   ): Promise<ServiceResult<{ devices: Device[]; total: number }>> {
-    console.log('getDeviceListDto', getDeviceListDto);
     const { page, limit, includePqcGateway, sortBy, sortOrder } = getDeviceListDto;
     const skip = (page - 1) * limit;
 
@@ -252,9 +259,8 @@ export class DevicesService {
         };
       }
 
-      const currentTime = new Date();
-      const pqcStatus = this.getDeviceConnectionStatus(pqcGateway, currentTime);
-      if (pqcStatus !== 'connected') {
+      const updatedPqcGateway = await this.getDeviceWithUpdatedStatus(pqcGateway);
+      if (updatedPqcGateway.status !== 'connected') {
         return {
           success: false,
           message: 'PQC Gateway not connected or not authenticated',
