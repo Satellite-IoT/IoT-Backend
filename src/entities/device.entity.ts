@@ -9,7 +9,7 @@ export class Device {
   @Column({ unique: true })
   deviceId: string;
 
-  @Column()
+  @Column({ nullable: true })
   publicKey: string;
 
   @Column({ nullable: true })
