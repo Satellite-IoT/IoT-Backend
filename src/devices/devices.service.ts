@@ -6,6 +6,7 @@ import { ErrorCode, SortField } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { CryptoService } from './crypto.service';
 import { AuthenticateDeviceDto, GetDeviceListDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
+import { PqcGatewayStatusDto } from 'src/pqc-gateway/dto';
 
 @Injectable()
 export class DevicesService {
@@ -15,7 +16,7 @@ export class DevicesService {
     private cryptoService: CryptoService,
   ) {}
 
-  private static readonly DEFAULT_TIMEOUT_MS = 3 * 60 * 1000; // 1 minute in milliseconds
+  private static readonly DEFAULT_TIMEOUT_MS = 3 * 60 * 1000; // 3 minute in milliseconds
 
   private getDeviceConnectionStatus(device: Device, currentTime: Date): 'connected' | 'disconnected' | 'unknown' {
     if (!device.isRegistered) {
@@ -235,5 +236,77 @@ export class DevicesService {
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
       };
     }
+  }
+
+  async updateDevicesStatus(
+    statusData: PqcGatewayStatusDto,
+  ): Promise<ServiceResult<{ deviceCtrl: Array<{ ipAddr: string; bandwidth: string }> }>> {
+    try {
+      // Check PQC Gateway connection status
+      const pqcGateway = await this.deviceRepository.findOne({ where: { deviceId: statusData.deviceId } });
+      if (!pqcGateway) {
+        return {
+          success: false,
+          message: 'PQC Gateway not registered',
+          errorCode: ErrorCode.DEVICE_NOT_FOUND,
+        };
+      }
+
+      const currentTime = new Date();
+      const pqcStatus = this.getDeviceConnectionStatus(pqcGateway, currentTime);
+      if (pqcStatus !== 'connected') {
+        return {
+          success: false,
+          message: 'PQC Gateway not connected or not authenticated',
+          errorCode: ErrorCode.AUTHENTICATION_FAILED,
+        };
+      }
+
+      // Update PQC Gateway device
+      await this.updateOrCreateDevice({
+        deviceId: statusData.deviceId,
+        deviceName: statusData.deviceName,
+        deviceType: 'pqc-gateway',
+      });
+
+      // Update other devices and collect deviceCtrl information
+      const deviceCtrl = [];
+      for (const deviceInfo of statusData.deviceInfo) {
+        const updatedDevice = await this.updateOrCreateDevice(deviceInfo);
+        deviceCtrl.push({
+          ipAddr: updatedDevice.ipAddr,
+          bandwidth: updatedDevice.flowControlLevel,
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Device status updated successfully',
+        data: { deviceCtrl },
+      };
+    } catch (error) {
+      console.error('Error updating device status:', error);
+      return {
+        success: false,
+        message: 'Failed to update device status',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+    }
+  }
+
+  private async updateOrCreateDevice(deviceData: Partial<Device>): Promise<Device> {
+    const { deviceId, ...updateData } = deviceData;
+    let device = await this.deviceRepository.findOne({ where: { deviceId } });
+
+    if (device) {
+      // Update existing device
+      Object.assign(device, updateData);
+    } else {
+      // Create new device
+      device = this.deviceRepository.create({
+        ...deviceData,
+      });
+    }
+    return await this.deviceRepository.save(device);
   }
 }
