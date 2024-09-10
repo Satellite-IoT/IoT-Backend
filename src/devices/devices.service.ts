@@ -15,7 +15,7 @@ export class DevicesService {
     private cryptoService: CryptoService,
   ) {}
 
-  private static readonly DEFAULT_TIMEOUT_MS = 60 * 1000; // 1 minute in milliseconds
+  private static readonly DEFAULT_TIMEOUT_MS = 3 * 60 * 1000; // 1 minute in milliseconds
 
   private getDeviceConnectionStatus(device: Device, currentTime: Date): 'connected' | 'disconnected' | 'unknown' {
     if (!device.isRegistered) {
@@ -37,19 +37,19 @@ export class DevicesService {
 
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
     const { publicKey, deviceId, ...optionalFields } = registerDeviceDto;
-    const existingDevice = await this.deviceRepository.findOne({ where: { deviceId } });
+    let device = await this.deviceRepository.findOne({ where: { deviceId } });
 
-    if (existingDevice) {
+    if (device?.isRegistered) {
       return {
         success: false,
-        message: 'Device ID already exists',
-        errorCode: ErrorCode.DEVICE_ALREADY_EXISTS,
+        message: 'Device ID already registered',
+        errorCode: ErrorCode.DEVICE_ALREADY_REGISTERED,
       };
     }
 
     const allowedFields = ['ipAddr', 'deviceName', 'flowControlLevel'];
 
-    const device = this.deviceRepository.create({
+    const updatedFields = {
       publicKey,
       deviceId,
       status: 'disconnected',
@@ -58,7 +58,15 @@ export class DevicesService {
         (acc, [key, value]) => (allowedFields.includes(key) && value !== undefined ? { ...acc, [key]: value } : acc),
         {},
       ),
-    });
+    };
+
+    if (device) {
+      // Update existing device
+      Object.assign(device, updatedFields);
+    } else {
+      // Create new device
+      device = this.deviceRepository.create(updatedFields);
+    }
 
     const savedDevice = await this.deviceRepository.save(device);
     return {
