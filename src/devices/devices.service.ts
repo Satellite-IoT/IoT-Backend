@@ -103,10 +103,13 @@ export class DevicesService {
     const isValid = this.cryptoService.verify(device.publicKey, signature, message);
 
     if (isValid) {
-      device.isAuthenticated = true;
-      device.deviceType = deviceType;
-      device.ipAddr = ipAddr;
-      device.lastAuthenticated = new Date();
+      Object.assign(device, {
+        deviceType,
+        isAuthenticated: true,
+        lastAuthenticated: new Date(),
+        ...(ipAddr && { ipAddr }),
+      });
+
       await this.deviceRepository.save(device);
       return { success: true, message: 'Device authenticated successfully' };
     } else {
@@ -249,22 +252,18 @@ export class DevicesService {
     statusData: PqcGatewayStatusDto,
   ): Promise<ServiceResult<{ deviceCtrl: Array<{ ipAddr: string; bandwidth: string }> }>> {
     try {
-      // Check PQC Gateway connection status
-      const pqcGateway = await this.deviceRepository.findOne({ where: { deviceId: statusData.deviceId } });
-      if (!pqcGateway) {
-        return {
-          success: false,
-          message: 'PQC Gateway not registered',
-          errorCode: ErrorCode.DEVICE_NOT_FOUND,
-        };
-      }
+      // PQC Gateway authentication
+      const authResult = await this.authenticate({
+        signature: statusData.signature,
+        deviceType: 'pqc-gateway',
+        deviceId: statusData.deviceId,
+      });
 
-      const updatedPqcGateway = await this.getDeviceWithUpdatedStatus(pqcGateway);
-      if (updatedPqcGateway.status !== 'connected') {
+      if (!authResult.success) {
         return {
           success: false,
-          message: 'PQC Gateway not connected or not authenticated',
-          errorCode: ErrorCode.AUTHENTICATION_FAILED,
+          message: authResult.message,
+          errorCode: authResult.errorCode,
         };
       }
 
