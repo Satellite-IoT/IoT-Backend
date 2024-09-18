@@ -7,6 +7,7 @@ import { DevicesController } from './devices/devices.controller';
 import { DevicesService } from './devices/devices.service';
 import { DevicesModule } from './devices/devices.module';
 import { PqcGatewayModule } from './pqc-gateway/pqc-gateway.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PqcGatewayModule } from './pqc-gateway/pqc-gateway.module';
     }),
     DevicesModule,
     PqcGatewayModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],
