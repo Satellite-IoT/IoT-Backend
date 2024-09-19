@@ -7,6 +7,7 @@ import { DevicesController } from './devices/devices.controller';
 import { DevicesService } from './devices/devices.service';
 import { DevicesModule } from './devices/devices.module';
 import { EventsModule } from './events/events.module';
+import { PqcGatewayModule } from './pqc-gateway/pqc-gateway.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { EventsModule } from './events/events.module';
       inject: [ConfigService],
     }),
     DevicesModule,
+    PqcGatewayModule,
     EventsModule,
   ],
   controllers: [],

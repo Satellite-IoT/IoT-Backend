@@ -8,11 +8,14 @@ import {
   HttpException,
   UsePipes,
   ValidationPipe,
+  Delete,
+  Patch,
+  Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody } from '@nestjs/swagger';
-import { ErrorCode } from '../common/enums/error-codes.enum';
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
+import { ErrorCode, SortField, SortOrder } from 'src/common/enums';
 import { createApiResponse } from '../common/utils/response.util';
-import { AuthenticateDeviceDto, RegisterDeviceDto } from './dto';
+import { AuthenticateDeviceDto, GetDeviceListDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
 import { DevicesService } from './devices.service';
 import { CryptoService } from './crypto.service';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
@@ -76,10 +79,15 @@ export class DevicesController {
   }
 
   @Get('list')
-  @ApiOperation({ summary: 'Get a list of all devices' })
-  @ApiResponse({ status: 200, description: 'Returns the list of all devices.' })
-  async getDeviceList() {
-    const result = await this.devicesService.getDeviceList();
+  @ApiOperation({ summary: 'Get a list of devices with pagination, filtering, and sorting' })
+  @ApiResponse({ status: 200, description: 'Returns the list of devices.' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'includePqcGateway', required: false, type: Boolean })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortOrder', required: false, type: String })
+  async getDeviceList(@Query() getDeviceListDto: GetDeviceListDto) {
+    const result = await this.devicesService.getDeviceList(getDeviceListDto);
     if (result.success) {
       return createApiResponse({
         success: true,
@@ -135,6 +143,56 @@ export class DevicesController {
         success: true,
         message: result.message,
         data: result.data,
+      });
+    } else {
+      throw new HttpException(
+        createApiResponse({
+          success: false,
+          message: result.message,
+          error: result.errorCode,
+        }),
+        mapErrorCodeToHttpStatus(result.errorCode),
+      );
+    }
+  }
+
+  @Patch(':deviceId')
+  @ApiOperation({ summary: 'Update a device by device ID' })
+  @ApiParam({ name: 'deviceId', type: 'string' })
+  @ApiBody({ type: UpdateDeviceDto })
+  @ApiResponse({ status: 200, description: 'The device has been successfully updated.' })
+  @ApiResponse({ status: 404, description: 'Device not found.' })
+  async updateDevice(@Param('deviceId') deviceId: string, @Body() updateDeviceDto: UpdateDeviceDto) {
+    const result = await this.devicesService.updateDevice(deviceId, updateDeviceDto);
+    if (result.success) {
+      return createApiResponse({
+        success: true,
+        message: result.message,
+        data: result.data,
+      });
+    } else {
+      throw new HttpException(
+        createApiResponse({
+          success: false,
+          message: result.message,
+          error: result.errorCode,
+        }),
+        mapErrorCodeToHttpStatus(result.errorCode),
+      );
+    }
+  }
+
+  @Delete(':deviceId')
+  @ApiOperation({ summary: 'Delete a device by device ID' })
+  @ApiParam({ name: 'deviceId', type: 'string' })
+  @ApiResponse({ status: 200, description: 'The device has been successfully deleted.' })
+  @ApiResponse({ status: 404, description: 'Device not found.' })
+  async deleteDeviceByDeviceId(@Param('deviceId') deviceId: string) {
+    const result = await this.devicesService.deleteDeviceByDeviceId(deviceId);
+    if (result.success) {
+      return createApiResponse({
+        success: true,
+        message: result.message,
       });
     } else {
       throw new HttpException(

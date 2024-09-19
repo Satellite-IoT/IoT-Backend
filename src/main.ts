@@ -21,6 +21,7 @@ async function bootstrap() {
   app.setGlobalPrefix(`api/${apiVersion}`);
 
   app.enableCors();
+  console.log('Using Port:', configService.get<number>('PORT'));
   await app.listen(configService.get<number>('PORT') || 3002);
 }
 bootstrap();
