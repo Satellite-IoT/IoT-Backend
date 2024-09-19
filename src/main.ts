@@ -20,9 +20,11 @@ async function bootstrap() {
   SwaggerModule.setup('api-docs', app, document);
 
   app.setGlobalPrefix(`api/${apiVersion}`);
-  app.useGlobalPipes(new ValidationPipe({
-    disableErrorMessages: true,
-  }),);
+  app.useGlobalPipes(
+    new ValidationPipe({
+      disableErrorMessages: true,
+    }),
+  );
   app.enableCors();
   console.log('Using Port:', configService.get<number>('PORT'));
   await app.listen(configService.get<number>('PORT') || 3002);
