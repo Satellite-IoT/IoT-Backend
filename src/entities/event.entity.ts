@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
-import { EventLevel, EventType } from 'src/common/enums';
+import { EventLevel, EventTag, EventType } from 'src/common/enums';
 import { EventContext } from 'src/events/types/event-context.interface';
 
 @Entity('events')
@@ -24,6 +24,13 @@ export class Event {
   })
   @Index()
   level: EventLevel;
+
+  @Column({
+    type: 'enum',
+    enum: EventTag,
+  })
+  @Index()
+  tag: EventTag;
 
   @Column('text')
   message: string;

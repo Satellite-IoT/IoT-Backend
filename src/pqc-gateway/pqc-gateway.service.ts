@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ErrorCode, EventLevel, EventType } from 'src/common/enums';
+import { ErrorCode, EventLevel, EventTag, EventType } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
 import { EventsService } from 'src/events/events.service';
@@ -41,7 +41,8 @@ export class PqcGatewayService {
       const updatedEvents = await Promise.all(
         alarmData.alarmInfo.map(async (alarm) => {
           const event = await this.eventsService.createEvent({
-            type: EventType.PQC_GATEWAY,
+            type: EventType.PQC_GATEWAY_ALARM,
+            tag: EventTag.PQC_GATEWAY,
             level: alarm.alarmType,
             message: alarm.alarmDestription,
           });

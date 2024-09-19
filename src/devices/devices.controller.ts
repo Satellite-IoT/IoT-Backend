@@ -13,11 +13,12 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
-import { ErrorCode, SortField, SortOrder } from 'src/common/enums';
+import { ErrorCode, EventLevel, EventTag, EventType, SortField, SortOrder } from 'src/common/enums';
 import { createApiResponse } from '../common/utils/response.util';
 import { AuthenticateDeviceDto, GetDeviceListDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
 import { DevicesService } from './devices.service';
 import { CryptoService } from './crypto.service';
+import { EventsService } from 'src/events/events.service';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
 
 @ApiTags('devices')
@@ -27,6 +28,7 @@ export class DevicesController {
   constructor(
     private readonly devicesService: DevicesService,
     private readonly cryptoService: CryptoService,
+    private readonly eventsService: EventsService,
   ) {}
 
   @Post('register')
@@ -37,12 +39,28 @@ export class DevicesController {
   async register(@Body() registerDeviceDto: RegisterDeviceDto) {
     const result = await this.devicesService.register(registerDeviceDto);
     if (result.success) {
+      await this.eventsService.createEvent({
+        level: EventLevel.INFO,
+        type: EventType.DEVICE_REGISTRATION,
+        tag: EventTag.DEVICE,
+        message: 'Device registered successfully',
+        details: `Device [${registerDeviceDto.deviceId}] has been registered successfully`,
+      });
+
       return createApiResponse({
         success: true,
         message: result.message,
         data: result.data,
       });
     } else {
+      await this.eventsService.createEvent({
+        level: EventLevel.ERROR,
+        type: EventType.DEVICE_REGISTRATION,
+        tag: EventTag.DEVICE,
+        message: 'Device registration failed',
+        details: `Failed to register device [${registerDeviceDto.deviceId}]: ${result.message}`,
+      });
+
       throw new HttpException(
         createApiResponse({
           success: false,
@@ -62,11 +80,27 @@ export class DevicesController {
   async authenticate(@Body() authenticateDeviceDto: AuthenticateDeviceDto) {
     const result = await this.devicesService.authenticate(authenticateDeviceDto);
     if (result.success) {
+      await this.eventsService.createEvent({
+        level: EventLevel.INFO,
+        type: EventType.DEVICE_AUTHENTICATION,
+        tag: EventTag.DEVICE,
+        message: 'Device authenticated successfully',
+        details: `Device [${authenticateDeviceDto.deviceId}] has been authenticated successfully`,
+      });
+
       return createApiResponse({
         success: true,
         message: result.message,
       });
     } else {
+      await this.eventsService.createEvent({
+        level: EventLevel.WARNING,
+        type: EventType.DEVICE_AUTHENTICATION,
+        tag: EventTag.DEVICE,
+        message: 'Device authentication failed',
+        details: `Failed to authenticate device [${authenticateDeviceDto.deviceId}]: ${result.message}`,
+      });
+
       throw new HttpException(
         createApiResponse({
           success: false,

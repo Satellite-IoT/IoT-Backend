@@ -1,6 +1,6 @@
 import { IsEnum, IsString, IsObject, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { EventLevel, EventType } from 'src/common/enums';
+import { EventLevel, EventTag, EventType } from 'src/common/enums';
 import { EventContext } from '../types/event-context.interface';
 
 export class CreateEventDto {
@@ -15,10 +15,18 @@ export class CreateEventDto {
   @ApiProperty({
     enum: EventType,
     description: 'Type of the event',
-    example: EventType.PQC_GATEWAY,
+    example: EventType.DEVICE_REGISTRATION,
   })
   @IsEnum(EventType)
   type: EventType;
+
+  @ApiProperty({
+    enum: EventTag,
+    description: 'Tag of the event',
+    example: EventTag.DEVICE,
+  })
+  @IsEnum(EventTag)
+  tag: EventTag;
 
   @ApiProperty({
     description: 'Brief description of the event',

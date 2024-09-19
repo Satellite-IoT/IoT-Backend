@@ -1,5 +1,5 @@
 export interface EventContext {
-  deviceId?: number;
-  deviceName?: number;
+  deviceId?: string;
+  deviceName?: string;
   ipAddr?: string;
 }
