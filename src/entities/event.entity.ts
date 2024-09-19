@@ -25,12 +25,12 @@ export class Event {
   @Index()
   level: EventLevel;
 
-  @Column()
+  @Column('text')
   message: string;
 
-  @Column('text')
-  details: string;
+  @Column('text', { nullable: true })
+  details?: string;
 
-  @Column('jsonb')
-  context: EventContext;
+  @Column('jsonb', { nullable: true })
+  context?: EventContext;
 }
