@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { DevicesController } from './devices/devices.controller';
 import { DevicesService } from './devices/devices.service';
 import { DevicesModule } from './devices/devices.module';
+import { EventsModule } from './events/events.module';
 import { PqcGatewayModule } from './pqc-gateway/pqc-gateway.module';
 import { AuthModule } from './auth/auth.module';
 
@@ -30,6 +31,7 @@ import { AuthModule } from './auth/auth.module';
     }),
     DevicesModule,
     PqcGatewayModule,
+    EventsModule,
     AuthModule,
   ],
   controllers: [],

@@ -6,15 +6,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 @Module({
-  imports: [TypeOrmModule.forFeature([User]),
-  JwtModule.register({
-
-    global: true,
-    secret: "THipM7zVbnnvRvZ1yN61",
-    signOptions: { expiresIn: '7d', },
-  }),],
+  imports: [
+    TypeOrmModule.forFeature([User]),
+    JwtModule.register({
+      global: true,
+      secret: 'THipM7zVbnnvRvZ1yN61',
+      signOptions: { expiresIn: '7d' },
+    }),
+  ],
   controllers: [AuthController],
   providers: [AuthService],
   exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

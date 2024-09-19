@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsArray, ValidateNested, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { Event } from 'src/entities';
+import { EventLevel, EventType } from 'src/common/enums';
 
 export class DeviceCtrlDto {
   @ApiProperty({
@@ -18,7 +20,24 @@ export class DeviceCtrlDto {
   bandwidth: 'low' | 'medium' | 'high';
 }
 
-export class PqcGatewaySuccessResponseDto {
+export class EventDto {
+  @ApiProperty({
+    enum: EventLevel,
+    description: 'Event severity level',
+    example: EventLevel.WARNING,
+  })
+  @IsEnum(EventLevel)
+  level: EventLevel;
+
+  @ApiProperty({
+    description: 'Brief description of the event',
+    example: 'Device connected.',
+  })
+  @IsString()
+  message: string;
+}
+
+export class PqcGatewayStatusResponseDto {
   @ApiProperty({
     description: 'Result of the operation',
     example: 'success',
@@ -33,6 +52,30 @@ export class PqcGatewaySuccessResponseDto {
   @ValidateNested({ each: true })
   @Type(() => DeviceCtrlDto)
   deviceCtrl: DeviceCtrlDto[];
+}
+
+export class PqcGatewayAlarmResponseDto {
+  @ApiProperty({
+    description: 'Result of the operation',
+    example: 'success',
+  })
+  result: 'success';
+
+  @ApiProperty({
+    description: 'Success message',
+    example: 'Alarm received successfully',
+  })
+  @IsString()
+  message: string;
+
+  @ApiProperty({
+    description: 'Array of updated events',
+    type: [EventDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => EventDto)
+  updatedEvents: EventDto[];
 }
 
 export class PqcGatewayErrorResponseDto {
@@ -98,7 +141,8 @@ export class PqcGatewayAuthenticationErrorDto extends PqcGatewayErrorResponseDto
 }
 
 export type PqcGatewayResponseDto =
-  | PqcGatewaySuccessResponseDto
+  | PqcGatewayStatusResponseDto
+  | PqcGatewayAlarmResponseDto
   | PqcGatewayErrorResponseDto
   | PqcGatewayNotFoundErrorDto
   | PqcGatewayAuthenticationErrorDto;

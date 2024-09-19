@@ -6,16 +6,15 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { AccountRole } from 'src/common/enums';
 import { Request, Response } from 'express';
+
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
-  ) { }
+  ) {}
   async signin(signinAuthDto: AuthSignInDto, res: Response) {
-
-
     const email = signinAuthDto.email;
     const password = signinAuthDto.password;
     const user = await this.userRepository.findOne({ where: { email } });
@@ -27,11 +26,9 @@ export class AuthService {
       throw new UnauthorizedException();
     }
 
-
-    const payload = { sub: user.id.toString(), role: "user" };
+    const payload = { sub: user.id.toString(), role: 'user' };
 
     const access_token = await this.jwtService.signAsync(payload);
-
 
     res.cookie('iot_token', access_token, {
       httpOnly: true,
@@ -39,22 +36,21 @@ export class AuthService {
       maxAge: 1000 * 60 * 60 * 24 * 7,
       sameSite: 'strict',
       // domain:'localhost'
-    })
-    res.cookie('is_login', "true", {
+    });
+    res.cookie('is_login', 'true', {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production', // 僅在生產環境中啟用 secure 標誌
       maxAge: 1000 * 60 * 60 * 24 * 7,
       sameSite: 'strict',
       // domain:'localhost'
-    })
+    });
 
     return {
-      access_token: access_token
+      access_token: access_token,
     };
   }
 
   async signup(signupAuthDto: AuthSignUpDto) {
-
     const email = signupAuthDto.email;
     const password = signupAuthDto.password;
 
@@ -65,7 +61,9 @@ export class AuthService {
 
     try {
       const user = this.userRepository.create({
-        email, password, role: AccountRole.USER
+        email,
+        password,
+        role: AccountRole.USER,
       });
 
       await this.userRepository.save(user);
@@ -73,8 +71,7 @@ export class AuthService {
       throw new BadRequestException();
     }
 
-
-    return { msg: "success" };
+    return { msg: 'success' };
   }
 
   signout(res: Response) {
@@ -93,8 +90,6 @@ export class AuthService {
       // domain:'localhost'
     });
 
-    return { msg: "success" };
+    return { msg: 'success' };
   }
-
-
 }
