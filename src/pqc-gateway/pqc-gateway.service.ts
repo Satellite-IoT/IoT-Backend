@@ -6,7 +6,7 @@ import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
 import { EventsService } from 'src/events/events.service';
 import { Device, Event } from 'src/entities';
-import { PqcGatewayAlarmDto } from './dto';
+import { PqcGatewayAlarmDto, PqcGatewayStatusDto } from './dto';
 
 @Injectable()
 export class PqcGatewayService {
@@ -18,6 +18,57 @@ export class PqcGatewayService {
     private devicesService: DevicesService,
     private eventsService: EventsService,
   ) {}
+
+  async updateDevicesStatus(
+    statusData: PqcGatewayStatusDto,
+  ): Promise<ServiceResult<{ deviceCtrl: Array<{ ipAddr: string; bandwidth: string }> }>> {
+    try {
+      // PQC Gateway authentication
+      const authResult = await this.devicesService.authenticate({
+        signature: statusData.signature,
+        deviceType: 'pqc-gateway',
+        deviceId: statusData.deviceId,
+      });
+
+      if (!authResult.success) {
+        return {
+          success: false,
+          message: authResult.message,
+          errorCode: authResult.errorCode,
+        };
+      }
+
+      // Update PQC Gateway device
+      await this.devicesService.updateOrCreateDevice({
+        deviceId: statusData.deviceId,
+        deviceName: statusData.deviceName,
+        deviceType: 'pqc-gateway',
+      });
+
+      // Update other devices and collect deviceCtrl information
+      const deviceCtrl = [];
+      for (const deviceInfo of statusData.deviceInfo) {
+        const updatedDevice = await this.devicesService.updateOrCreateDevice(deviceInfo);
+        deviceCtrl.push({
+          ipAddr: updatedDevice.ipAddr,
+          bandwidth: updatedDevice.flowControlLevel,
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Device status updated successfully',
+        data: { deviceCtrl },
+      };
+    } catch (error) {
+      console.error('Error updating device status:', error);
+      return {
+        success: false,
+        message: 'Failed to update device status',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+    }
+  }
 
   async updatePqcGatewayAlarm(
     alarmData: PqcGatewayAlarmDto,

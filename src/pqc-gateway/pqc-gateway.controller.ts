@@ -2,7 +2,6 @@ import { Controller, Post, Body, HttpException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
 import { createApiResponse } from 'src/common/utils/response.util';
-import { DevicesService } from '../devices/devices.service';
 import { EventsService } from 'src/events/events.service';
 import { PqcGatewayService } from './pqc-gateway.service';
 import {
@@ -19,7 +18,6 @@ import {
 @Controller('pqcGateway')
 export class PqcGatewayController {
   constructor(
-    private readonly devicesService: DevicesService,
     private readonly pqcGatewayService: PqcGatewayService,
   ) {}
 
@@ -48,7 +46,7 @@ export class PqcGatewayController {
   })
   async updatePqcGatewayStatus(@Body() statusData: PqcGatewayStatusDto) {
     console.log('pqc-gateway-status', statusData);
-    const result = await this.devicesService.updateDevicesStatus(statusData);
+    const result = await this.pqcGatewayService.updateDevicesStatus(statusData);
     if (result.success) {
       return {
         result: 'success',

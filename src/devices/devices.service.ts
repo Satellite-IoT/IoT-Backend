@@ -248,58 +248,7 @@ export class DevicesService {
     }
   }
 
-  async updateDevicesStatus(
-    statusData: PqcGatewayStatusDto,
-  ): Promise<ServiceResult<{ deviceCtrl: Array<{ ipAddr: string; bandwidth: string }> }>> {
-    try {
-      // PQC Gateway authentication
-      const authResult = await this.authenticate({
-        signature: statusData.signature,
-        deviceType: 'pqc-gateway',
-        deviceId: statusData.deviceId,
-      });
-
-      if (!authResult.success) {
-        return {
-          success: false,
-          message: authResult.message,
-          errorCode: authResult.errorCode,
-        };
-      }
-
-      // Update PQC Gateway device
-      await this.updateOrCreateDevice({
-        deviceId: statusData.deviceId,
-        deviceName: statusData.deviceName,
-        deviceType: 'pqc-gateway',
-      });
-
-      // Update other devices and collect deviceCtrl information
-      const deviceCtrl = [];
-      for (const deviceInfo of statusData.deviceInfo) {
-        const updatedDevice = await this.updateOrCreateDevice(deviceInfo);
-        deviceCtrl.push({
-          ipAddr: updatedDevice.ipAddr,
-          bandwidth: updatedDevice.flowControlLevel,
-        });
-      }
-
-      return {
-        success: true,
-        message: 'Device status updated successfully',
-        data: { deviceCtrl },
-      };
-    } catch (error) {
-      console.error('Error updating device status:', error);
-      return {
-        success: false,
-        message: 'Failed to update device status',
-        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
-      };
-    }
-  }
-
-  private async updateOrCreateDevice(deviceData: Partial<Device>): Promise<Device> {
+  async updateOrCreateDevice(deviceData: Partial<Device>): Promise<Device> {
     const { deviceId, ...updateData } = deviceData;
     let device = await this.deviceRepository.findOne({ where: { deviceId } });
 
