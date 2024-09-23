@@ -6,7 +6,7 @@ import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
 import { EventsService } from 'src/events/events.service';
 import { Alarm, Device, Event } from 'src/entities';
-import { AlarmDto, AlarmInfoDto, PqcGatewayAlarmDto, PqcGatewayStatusDto } from './dto';
+import { AlarmDto, AlarmInfoDto, GetPqcGatewayAlarmsDto, PqcGatewayAlarmDto, PqcGatewayStatusDto } from './dto';
 
 @Injectable()
 export class PqcGatewayService {
@@ -116,6 +116,42 @@ export class PqcGatewayService {
       return {
         success: false,
         message: 'Failed to receive pqc-gateway alarm',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+    }
+  }
+
+  async getAlarms(
+    getPqcGatewayAlarmsDto: GetPqcGatewayAlarmsDto,
+  ): Promise<ServiceResult<{ alarms: Alarm[]; total: number }>> {
+    try {
+      const { page, limit, alarmType, alarmStatus, sortBy, sortOrder } = getPqcGatewayAlarmsDto;
+      const skip = (page - 1) * limit;
+
+      const queryBuilder = this.alarmRepository.createQueryBuilder('alarm');
+
+      if (alarmType) {
+        queryBuilder.andWhere('alarm.alarmType = :alarmType', { alarmType });
+      }
+
+      if (alarmStatus) {
+        queryBuilder.andWhere('alarm.alarmStatus = :alarmStatus', { alarmStatus });
+      }
+
+      queryBuilder.orderBy(`alarm.${sortBy}`, sortOrder);
+
+      const [alarms, total] = await queryBuilder.skip(skip).take(limit).getManyAndCount();
+
+      return {
+        success: true,
+        message: 'Alarms retrieved successfully',
+        data: { alarms, total },
+      };
+    } catch (error) {
+      console.error('Error retrieving alarms:', error);
+      return {
+        success: false,
+        message: 'Failed to retrieve alarms',
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
       };
     }
