@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ErrorCode, EventLevel, EventTag, EventType } from 'src/common/enums';
+import { AlarmType, ErrorCode, EventLevel, EventTag, EventType } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
 import { EventsService } from 'src/events/events.service';
-import { Device, Event } from 'src/entities';
-import { PqcGatewayAlarmDto, PqcGatewayStatusDto } from './dto';
+import { Alarm, Device, Event } from 'src/entities';
+import { AlarmDto, AlarmInfoDto, PqcGatewayAlarmDto, PqcGatewayStatusDto } from './dto';
 
 @Injectable()
 export class PqcGatewayService {
@@ -15,6 +15,8 @@ export class PqcGatewayService {
     private deviceRepository: Repository<Device>,
     @InjectRepository(Event)
     private eventRepository: Repository<Event>,
+    @InjectRepository(Alarm)
+    private alarmRepository: Repository<Alarm>,
     private devicesService: DevicesService,
     private eventsService: EventsService,
   ) {}
@@ -72,7 +74,7 @@ export class PqcGatewayService {
 
   async updatePqcGatewayAlarm(
     alarmData: PqcGatewayAlarmDto,
-  ): Promise<ServiceResult<{ updatedEvents: Array<{ level: EventLevel; message: string }> }>> {
+  ): Promise<ServiceResult<{ updatedAlarms: Array<AlarmDto> }>> {
     try {
       // PQC Gateway authentication
       const authResult = await this.devicesService.authenticate({
@@ -89,18 +91,17 @@ export class PqcGatewayService {
         };
       }
 
-      const updatedEvents = await Promise.all(
-        alarmData.alarmInfo.map(async (alarm) => {
-          const event = await this.eventsService.createEvent({
-            type: EventType.PQC_GATEWAY_ALARM,
-            tag: EventTag.PQC_GATEWAY,
-            level: alarm.alarmType,
-            message: alarm.alarmDestription,
+      const updatedAlarms = await Promise.all(
+        alarmData.alarmInfo.map(async (alarmItem) => {
+          const alarm = await this.createAlarm({
+            alarmType: alarmItem.alarmType,
+            alarmDescription: alarmItem.alarmDescription,
           });
 
           return {
-            level: event.level,
-            message: event.message,
+            alarmType: alarm.alarmType,
+            alarmDescription: alarm.alarmDescription,
+            createdAt: alarm.createdAt,
           };
         }),
       );
@@ -108,7 +109,7 @@ export class PqcGatewayService {
       return {
         success: true,
         message: 'Alarm received successfully',
-        data: { updatedEvents },
+        data: { updatedAlarms },
       };
     } catch (error) {
       console.error('Error updating pqc-gateway alarm:', error);
@@ -118,5 +119,10 @@ export class PqcGatewayService {
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
       };
     }
+  }
+
+  private async createAlarm(alarmInfoDto: AlarmInfoDto): Promise<Alarm> {
+    const alarm = this.alarmRepository.create(alarmInfoDto);
+    return this.alarmRepository.save(alarm);
   }
 }

@@ -17,9 +17,7 @@ import {
 @ApiTags('pqc-gateway')
 @Controller('pqcGateway')
 export class PqcGatewayController {
-  constructor(
-    private readonly pqcGatewayService: PqcGatewayService,
-  ) {}
+  constructor(private readonly pqcGatewayService: PqcGatewayService) {}
 
   @Post('status_ind')
   @ApiOperation({ summary: 'Update status of PQC Gateway' })
@@ -93,7 +91,7 @@ export class PqcGatewayController {
       return {
         result: 'success',
         message: result.message,
-        updatedEvents: result.data.updatedEvents,
+        updatedAlarms: result.data.updatedAlarms,
       };
     } else {
       throw new HttpException(

@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsArray, ValidateNested, IsEnum } from 'class-validator';
+import { IsString, IsArray, ValidateNested, IsEnum, IsDate } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Event } from 'src/entities';
-import { EventLevel, EventType } from 'src/common/enums';
+import { AlarmType } from 'src/common/enums';
 
 export class DeviceCtrlDto {
   @ApiProperty({
@@ -20,21 +20,29 @@ export class DeviceCtrlDto {
   bandwidth: 'low' | 'medium' | 'high';
 }
 
-export class EventDto {
+export class AlarmDto {
   @ApiProperty({
-    enum: EventLevel,
-    description: 'Event severity level',
-    example: EventLevel.WARNING,
+    enum: AlarmType,
+    description: 'Alarm severity level',
+    example: AlarmType.WARNING,
   })
-  @IsEnum(EventLevel)
-  level: EventLevel;
+  @IsEnum(AlarmType)
+  alarmType: AlarmType;
 
   @ApiProperty({
-    description: 'Brief description of the event',
+    description: 'Brief description of the alarm',
     example: 'Device connected.',
   })
   @IsString()
-  message: string;
+  alarmDescription: string;
+
+  @ApiProperty({
+    description: 'Timestamp when the alarm was created',
+    example: '2023-09-23T12:34:56.789Z',
+  })
+  @IsDate()
+  @Type(() => Date)
+  createdAt: Date;
 }
 
 export class PqcGatewayStatusResponseDto {
@@ -69,13 +77,13 @@ export class PqcGatewayAlarmResponseDto {
   message: string;
 
   @ApiProperty({
-    description: 'Array of updated events',
-    type: [EventDto],
+    description: 'Array of updated alarms',
+    type: [AlarmDto],
   })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => EventDto)
-  updatedEvents: EventDto[];
+  @Type(() => AlarmDto)
+  updatedAlarms: AlarmDto[];
 }
 
 export class PqcGatewayErrorResponseDto {
