@@ -231,6 +231,7 @@ export class DevicesService {
     }
 
     Object.assign(device, updateDeviceDto);
+    device.updatedAt = new Date();
 
     try {
       const updatedDevice = await this.deviceRepository.save(device);
