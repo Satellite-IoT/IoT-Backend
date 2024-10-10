@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpException, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, HttpException, Get, Query, ClassSerializerInterceptor, UseInterceptors } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
 import { createApiResponse } from 'src/common/utils/response.util';
@@ -18,6 +18,7 @@ import { AlarmStatus, AlarmType } from 'src/common/enums';
 
 @ApiTags('pqc-gateway')
 @Controller('pqcGateway')
+@UseInterceptors(ClassSerializerInterceptor)
 export class PqcGatewayController {
   constructor(private readonly pqcGatewayService: PqcGatewayService) {}
 
@@ -115,6 +116,8 @@ export class PqcGatewayController {
   @ApiQuery({ name: 'alarmStatus', required: false, enum: AlarmStatus })
   @ApiQuery({ name: 'sortBy', required: false, type: String })
   @ApiQuery({ name: 'sortOrder', required: false, enum: ['ASC', 'DESC'] })
+  @ApiQuery({ name: 'startDate', required: false, type: Date })
+  @ApiQuery({ name: 'endDate', required: false, type: Date })
   @ApiResponse({ status: 200, description: 'Alarms retrieved successfully.' })
   @ApiResponse({ status: 500, description: 'Internal Server Error' })
   async getPqcGatewayAlarms(@Query() getPqcGatewayAlarmsDto: GetPqcGatewayAlarmsDto) {

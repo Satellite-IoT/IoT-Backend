@@ -6,7 +6,7 @@ import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
 import { EventsService } from 'src/events/events.service';
 import { Alarm, Device, Event } from 'src/entities';
-import { AlarmDto, AlarmInfoDto, GetPqcGatewayAlarmsDto, PqcGatewayAlarmDto, PqcGatewayStatusDto } from './dto';
+import { AlarmDto, AlarmInfoDto, CreateAlarmDto, GetPqcGatewayAlarmsDto, PqcGatewayAlarmDto, PqcGatewayStatusDto } from './dto';
 
 @Injectable()
 export class PqcGatewayService {
@@ -93,14 +93,20 @@ export class PqcGatewayService {
 
       const updatedAlarms = await Promise.all(
         alarmData.alarmInfo.map(async (alarmItem) => {
-          const alarm = await this.createAlarm({
+          const createAlarmDto: CreateAlarmDto = {
             alarmType: alarmItem.alarmType,
             alarmDescription: alarmItem.alarmDescription,
-          });
+            deviceId: alarmData.deviceId,
+            deviceName: alarmData.deviceName,
+          };
+
+          const alarm = await this.createAlarm(createAlarmDto);
 
           return {
             alarmType: alarm.alarmType,
             alarmDescription: alarm.alarmDescription,
+            deviceId: alarm.deviceId,
+            deviceName: alarm.deviceName,
             createdAt: alarm.createdAt,
           };
         }),
@@ -125,7 +131,7 @@ export class PqcGatewayService {
     getPqcGatewayAlarmsDto: GetPqcGatewayAlarmsDto,
   ): Promise<ServiceResult<{ alarms: Alarm[]; total: number }>> {
     try {
-      const { page, limit, alarmType, alarmStatus, sortBy, sortOrder } = getPqcGatewayAlarmsDto;
+      const { page, limit, alarmType, alarmStatus, sortBy, sortOrder, startDate, endDate } = getPqcGatewayAlarmsDto;
       const skip = (page - 1) * limit;
 
       const queryBuilder = this.alarmRepository.createQueryBuilder('alarm');
@@ -136,6 +142,14 @@ export class PqcGatewayService {
 
       if (alarmStatus) {
         queryBuilder.andWhere('alarm.alarmStatus = :alarmStatus', { alarmStatus });
+      }
+
+      if (startDate) {
+        queryBuilder.andWhere('alarm.createdAt >= :startDate', { startDate });
+      }
+
+      if (endDate) {
+        queryBuilder.andWhere('alarm.createdAt <= :endDate', { endDate });
       }
 
       queryBuilder.orderBy(`alarm.${sortBy}`, sortOrder);
@@ -157,8 +171,8 @@ export class PqcGatewayService {
     }
   }
 
-  private async createAlarm(alarmInfoDto: AlarmInfoDto): Promise<Alarm> {
-    const alarm = this.alarmRepository.create(alarmInfoDto);
+  private async createAlarm(createAlarmDto: CreateAlarmDto): Promise<Alarm> {
+    const alarm = this.alarmRepository.create(createAlarmDto);
     return this.alarmRepository.save(alarm);
   }
 }

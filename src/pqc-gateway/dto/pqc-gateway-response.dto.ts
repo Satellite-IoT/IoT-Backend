@@ -1,8 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, IsArray, ValidateNested, IsEnum, IsDate } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { Event } from 'src/entities';
 import { AlarmType } from 'src/common/enums';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
+import { parseISO } from 'date-fns';
 
 export class DeviceCtrlDto {
   @ApiProperty({
@@ -37,11 +39,33 @@ export class AlarmDto {
   alarmDescription: string;
 
   @ApiProperty({
-    description: 'Timestamp when the alarm was created',
-    example: '2023-09-23T12:34:56.789Z',
+    description: 'ID of the device that triggered the alarm',
+    example: 'pqc-gateway-1',
+  })
+  @IsString()
+  deviceId: string;
+
+  @ApiProperty({
+    description: 'Name of the device that triggered the alarm',
+    example: 'PQC Gateway 1',
+  })
+  @IsString()
+  deviceName: string;
+
+  @ApiProperty({
+    description: 'Timestamp when the alarm was created (in Asia/Taipei timezone)',
+    example: '2023-09-23T20:34:56+08:00',
   })
   @IsDate()
-  @Type(() => Date)
+  @Transform(
+    ({ value }) => {
+      if (value instanceof Date) {
+        return formatInTimeZone(value, 'Asia/Taipei', "yyyy-MM-dd'T'HH:mm:ssXXX");
+      }
+      return value;
+    },
+    { toPlainOnly: true }
+  )
   createdAt: Date;
 }
 

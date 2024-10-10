@@ -27,6 +27,12 @@ export class Alarm {
   @Index()
   alarmStatus: AlarmStatus;
 
+  @Column('text')
+  deviceId: string;
+
+  @Column('text')
+  deviceName: string;
+
   @Column('text', { nullable: true })
   notes?: string;
 
