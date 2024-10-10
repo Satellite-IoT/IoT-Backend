@@ -55,3 +55,17 @@ export class PqcGatewayAlarmDto {
   @Type(() => AlarmInfoDto)
   alarmInfo: AlarmInfoDto[];
 }
+
+export class CreateAlarmDto {
+  @IsEnum(AlarmType)
+  alarmType: AlarmType;
+
+  @IsString()
+  alarmDescription: string;
+
+  @IsString()
+  deviceId: string;
+
+  @IsString()
+  deviceName: string;
+}

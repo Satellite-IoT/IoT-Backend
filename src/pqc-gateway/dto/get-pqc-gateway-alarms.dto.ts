@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, IsEnum } from 'class-validator';
+import { IsOptional, IsInt, Min, IsEnum, IsDate } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { AlarmType, AlarmStatus, SortOrder } from 'src/common/enums';
@@ -51,4 +51,16 @@ export class GetPqcGatewayAlarmsDto {
     default: SortOrder.DESC,
   })
   sortOrder?: SortOrder = SortOrder.DESC;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  @ApiPropertyOptional({ description: 'Start date for filtering alarms' })
+  startDate?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  @ApiPropertyOptional({ description: 'End date for filtering alarms' })
+  endDate?: Date;
 }

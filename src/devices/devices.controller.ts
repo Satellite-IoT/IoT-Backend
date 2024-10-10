@@ -11,6 +11,8 @@ import {
   Delete,
   Patch,
   Query,
+  ClassSerializerInterceptor,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { ErrorCode, EventLevel, EventTag, EventType, SortField, SortOrder } from 'src/common/enums';
@@ -24,6 +26,7 @@ import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
 @ApiTags('devices')
 @Controller('devices')
 @UsePipes(new ValidationPipe({ transform: true }))
+@UseInterceptors(ClassSerializerInterceptor)
 export class DevicesController {
   constructor(
     private readonly devicesService: DevicesService,
