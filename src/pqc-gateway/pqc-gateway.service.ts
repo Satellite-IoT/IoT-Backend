@@ -6,7 +6,15 @@ import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
 import { EventsService } from 'src/events/events.service';
 import { Alarm, Device, Event } from 'src/entities';
-import { AlarmDto, AlarmInfoDto, CreateAlarmDto, GetPqcGatewayAlarmsDto, PqcGatewayAlarmDto, PqcGatewayStatusDto } from './dto';
+import {
+  AlarmDto,
+  AlarmInfoDto,
+  CreateAlarmDto,
+  GetPqcGatewayAlarmsDto,
+  PqcGatewayAlarmDto,
+  PqcGatewayStatusDto,
+} from './dto';
+import { formatInTimeZone } from 'date-fns-tz';
 
 @Injectable()
 export class PqcGatewayService {
@@ -107,7 +115,7 @@ export class PqcGatewayService {
             alarmDescription: alarm.alarmDescription,
             deviceId: alarm.deviceId,
             deviceName: alarm.deviceName,
-            createdAt: alarm.createdAt,
+            createdAt: formatInTimeZone(alarm.createdAt, 'Asia/Taipei', "yyyy-MM-dd'T'HH:mm:ssXXX"),
           };
         }),
       );
@@ -131,7 +139,27 @@ export class PqcGatewayService {
     getPqcGatewayAlarmsDto: GetPqcGatewayAlarmsDto,
   ): Promise<ServiceResult<{ alarms: Alarm[]; total: number }>> {
     try {
-      const { page, limit, alarmType, alarmStatus, sortBy, sortOrder, startDate, endDate } = getPqcGatewayAlarmsDto;
+      const {
+        page,
+        limit,
+        alarmType,
+        alarmStatus,
+        sortBy,
+        sortOrder,
+        startDate,
+        endDate,
+        startTimestamp,
+        endTimestamp,
+      } = getPqcGatewayAlarmsDto;
+
+      if ((startDate && startTimestamp) || (endDate && endTimestamp)) {
+        return {
+          success: false,
+          message: 'Please provide either date or timestamp, not both',
+          errorCode: ErrorCode.INVALID_DATE_PARAMETERS,
+        };
+      }
+
       const skip = (page - 1) * limit;
 
       const queryBuilder = this.alarmRepository.createQueryBuilder('alarm');
@@ -144,12 +172,30 @@ export class PqcGatewayService {
         queryBuilder.andWhere('alarm.alarmStatus = :alarmStatus', { alarmStatus });
       }
 
-      if (startDate) {
-        queryBuilder.andWhere('alarm.createdAt >= :startDate', { startDate });
+      let finalStartDate: Date | undefined;
+      let finalEndDate: Date | undefined;
+
+      if (startTimestamp) {
+        finalStartDate = new Date(startTimestamp);
+        console.log('finalStartDate', finalStartDate);
+      } else if (startDate) {
+        finalStartDate = startDate;
       }
 
-      if (endDate) {
-        queryBuilder.andWhere('alarm.createdAt <= :endDate', { endDate });
+      if (endTimestamp) {
+        finalEndDate = new Date(endTimestamp);
+        console.log('finalEndDate', finalEndDate);
+      } else if (endDate) {
+        finalEndDate = endDate;
+      }
+
+      if (finalStartDate) {
+        console.log('finalStartDate', finalStartDate);
+        queryBuilder.andWhere('alarm.createdAt >= :startDate', { startDate: finalStartDate });
+      }
+
+      if (finalEndDate) {
+        queryBuilder.andWhere('alarm.createdAt <= :endDate', { endDate: finalEndDate });
       }
 
       queryBuilder.orderBy(`alarm.${sortBy}`, sortOrder);

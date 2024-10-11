@@ -56,17 +56,8 @@ export class AlarmDto {
     description: 'Timestamp when the alarm was created (in Asia/Taipei timezone)',
     example: '2023-09-23T20:34:56+08:00',
   })
-  @IsDate()
-  @Transform(
-    ({ value }) => {
-      if (value instanceof Date) {
-        return formatInTimeZone(value, 'Asia/Taipei', "yyyy-MM-dd'T'HH:mm:ssXXX");
-      }
-      return value;
-    },
-    { toPlainOnly: true }
-  )
-  createdAt: Date;
+  @IsString()
+  createdAt: string;
 }
 
 export class PqcGatewayStatusResponseDto {
