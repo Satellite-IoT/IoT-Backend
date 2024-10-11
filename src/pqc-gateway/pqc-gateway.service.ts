@@ -6,7 +6,15 @@ import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
 import { EventsService } from 'src/events/events.service';
 import { Alarm, Device, Event } from 'src/entities';
-import { AlarmDto, AlarmInfoDto, CreateAlarmDto, GetPqcGatewayAlarmsDto, PqcGatewayAlarmDto, PqcGatewayStatusDto } from './dto';
+import {
+  AlarmDto,
+  AlarmInfoDto,
+  CreateAlarmDto,
+  GetPqcGatewayAlarmsDto,
+  PqcGatewayAlarmDto,
+  PqcGatewayStatusDto,
+} from './dto';
+import { formatInTimeZone } from 'date-fns-tz';
 
 @Injectable()
 export class PqcGatewayService {
@@ -107,7 +115,7 @@ export class PqcGatewayService {
             alarmDescription: alarm.alarmDescription,
             deviceId: alarm.deviceId,
             deviceName: alarm.deviceName,
-            createdAt: alarm.createdAt,
+            createdAt: formatInTimeZone(alarm.createdAt, 'Asia/Taipei', "yyyy-MM-dd'T'HH:mm:ssXXX"),
           };
         }),
       );
