@@ -7,7 +7,8 @@ export function mapErrorCodeToHttpStatus(errorCode: ErrorCode): HttpStatus {
     // case ErrorCode.BAD_REQUEST:
     // case ErrorCode.INVALID_INPUT:
     // case ErrorCode.VALIDATION_ERROR:
-    //   return HttpStatus.BAD_REQUEST; // 400
+    case ErrorCode.INVALID_DATE_PARAMETERS:
+      return HttpStatus.BAD_REQUEST; // 400
 
     case ErrorCode.UNAUTHORIZED:
     case ErrorCode.AUTHENTICATION_FAILED:

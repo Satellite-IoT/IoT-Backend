@@ -1,4 +1,4 @@
-import { IsOptional, IsInt, Min, IsEnum, IsDate } from 'class-validator';
+import { IsOptional, IsInt, Min, IsEnum, IsDate, IsNumber, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { AlarmType, AlarmStatus, SortOrder } from 'src/common/enums';
@@ -55,12 +55,28 @@ export class GetPqcGatewayAlarmsDto {
   @IsOptional()
   @IsDate()
   @Type(() => Date)
-  @ApiPropertyOptional({ description: 'Start date for filtering alarms' })
+  @ValidateIf((o) => !o.startTimestamp)
+  @ApiPropertyOptional({ description: 'Start date for filtering alarms (ISO 8601 format)' })
   startDate?: Date;
 
   @IsOptional()
   @IsDate()
   @Type(() => Date)
-  @ApiPropertyOptional({ description: 'End date for filtering alarms' })
+  @ValidateIf((o) => !o.endTimestamp)
+  @ApiPropertyOptional({ description: 'End date for filtering alarms (ISO 8601 format)' })
   endDate?: Date;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @ValidateIf((o) => !o.startDate)
+  @ApiPropertyOptional({ description: 'Start timestamp for filtering alarms (Unix timestamp in milliseconds)' })
+  startTimestamp?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @ValidateIf((o) => !o.endDate)
+  @ApiPropertyOptional({ description: 'End timestamp for filtering alarms (Unix timestamp in milliseconds)' })
+  endTimestamp?: number;
 }
