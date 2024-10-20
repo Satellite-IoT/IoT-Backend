@@ -3,11 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PqcGatewayController } from './pqc-gateway.controller';
 import { PqcGatewayService } from './pqc-gateway.service';
 import { DevicesModule } from 'src/devices/devices.module';
-import { Device, Event } from 'src/entities';
+import { Alarm, Device, Event } from 'src/entities';
 import { EventsService } from 'src/events/events.service';
+import { LoggerModule } from 'src/logger/logger.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Device, Event]), DevicesModule],
+  imports: [TypeOrmModule.forFeature([Device, Event, Alarm]), DevicesModule, LoggerModule],
   controllers: [PqcGatewayController],
   providers: [PqcGatewayService, EventsService],
 })

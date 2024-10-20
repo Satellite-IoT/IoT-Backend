@@ -1,16 +1,16 @@
 import { IsString, IsArray, ValidateNested, IsNotEmpty, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { EventLevel } from 'src/common/enums';
+import { AlarmType } from 'src/common/enums';
 
-class AlarmInfoDto {
+export class AlarmInfoDto {
   @ApiProperty({
     description: 'Severity level of the alarm',
-    example: EventLevel.WARNING,
-    enum: EventLevel,
+    example: AlarmType.WARNING,
+    enum: AlarmType,
   })
-  @IsEnum(EventLevel)
-  alarmType: EventLevel;
+  @IsEnum(AlarmType)
+  alarmType: AlarmType;
 
   @ApiProperty({
     description: 'Detailed description of the alarm',
@@ -18,7 +18,7 @@ class AlarmInfoDto {
   })
   @IsString()
   @IsNotEmpty()
-  alarmDestription: string;
+  alarmDescription: string;
 }
 
 export class PqcGatewayAlarmDto {
@@ -54,4 +54,18 @@ export class PqcGatewayAlarmDto {
   @ValidateNested({ each: true })
   @Type(() => AlarmInfoDto)
   alarmInfo: AlarmInfoDto[];
+}
+
+export class CreateAlarmDto {
+  @IsEnum(AlarmType)
+  alarmType: AlarmType;
+
+  @IsString()
+  alarmDescription: string;
+
+  @IsString()
+  deviceId: string;
+
+  @IsString()
+  deviceName: string;
 }

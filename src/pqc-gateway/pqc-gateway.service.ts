@@ -1,12 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ErrorCode, EventLevel, EventTag, EventType } from 'src/common/enums';
+import { AlarmType, ErrorCode, EventLevel, EventTag, EventType } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
 import { EventsService } from 'src/events/events.service';
-import { Device, Event } from 'src/entities';
-import { PqcGatewayAlarmDto } from './dto';
+import { Alarm, Device, Event } from 'src/entities';
+import {
+  AlarmDto,
+  AlarmInfoDto,
+  CreateAlarmDto,
+  GetPqcGatewayAlarmsDto,
+  PqcGatewayAlarmDto,
+  PqcGatewayStatusDto,
+} from './dto';
+import { formatInTimeZone } from 'date-fns-tz';
 
 @Injectable()
 export class PqcGatewayService {
@@ -15,13 +23,66 @@ export class PqcGatewayService {
     private deviceRepository: Repository<Device>,
     @InjectRepository(Event)
     private eventRepository: Repository<Event>,
+    @InjectRepository(Alarm)
+    private alarmRepository: Repository<Alarm>,
     private devicesService: DevicesService,
     private eventsService: EventsService,
   ) {}
 
+  async updateDevicesStatus(
+    statusData: PqcGatewayStatusDto,
+  ): Promise<ServiceResult<{ deviceCtrl: Array<{ ipAddr: string; bandwidth: string }> }>> {
+    try {
+      // PQC Gateway authentication
+      const authResult = await this.devicesService.authenticate({
+        signature: statusData.signature,
+        deviceType: 'pqc-gateway',
+        deviceId: statusData.deviceId,
+      });
+
+      if (!authResult.success) {
+        return {
+          success: false,
+          message: authResult.message,
+          errorCode: authResult.errorCode,
+        };
+      }
+
+      // Update PQC Gateway device
+      await this.devicesService.updateOrCreateDevice({
+        deviceId: statusData.deviceId,
+        deviceName: statusData.deviceName,
+        deviceType: 'pqc-gateway',
+      });
+
+      // Update other devices and collect deviceCtrl information
+      const deviceCtrl = [];
+      for (const deviceInfo of statusData.deviceInfo) {
+        const updatedDevice = await this.devicesService.updateOrCreateDevice(deviceInfo);
+        deviceCtrl.push({
+          ipAddr: updatedDevice.ipAddr,
+          bandwidth: updatedDevice.flowControlLevel,
+        });
+      }
+
+      return {
+        success: true,
+        message: 'Device status updated successfully',
+        data: { deviceCtrl },
+      };
+    } catch (error) {
+      console.error('Error updating device status:', error);
+      return {
+        success: false,
+        message: 'Failed to update device status',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+    }
+  }
+
   async updatePqcGatewayAlarm(
     alarmData: PqcGatewayAlarmDto,
-  ): Promise<ServiceResult<{ updatedEvents: Array<{ level: EventLevel; message: string }> }>> {
+  ): Promise<ServiceResult<{ updatedAlarms: Array<AlarmDto> }>> {
     try {
       // PQC Gateway authentication
       const authResult = await this.devicesService.authenticate({
@@ -38,18 +99,23 @@ export class PqcGatewayService {
         };
       }
 
-      const updatedEvents = await Promise.all(
-        alarmData.alarmInfo.map(async (alarm) => {
-          const event = await this.eventsService.createEvent({
-            type: EventType.PQC_GATEWAY_ALARM,
-            tag: EventTag.PQC_GATEWAY,
-            level: alarm.alarmType,
-            message: alarm.alarmDestription,
-          });
+      const updatedAlarms = await Promise.all(
+        alarmData.alarmInfo.map(async (alarmItem) => {
+          const createAlarmDto: CreateAlarmDto = {
+            alarmType: alarmItem.alarmType,
+            alarmDescription: alarmItem.alarmDescription,
+            deviceId: alarmData.deviceId,
+            deviceName: alarmData.deviceName,
+          };
+
+          const alarm = await this.createAlarm(createAlarmDto);
 
           return {
-            level: event.level,
-            message: event.message,
+            alarmType: alarm.alarmType,
+            alarmDescription: alarm.alarmDescription,
+            deviceId: alarm.deviceId,
+            deviceName: alarm.deviceName,
+            createdAt: formatInTimeZone(alarm.createdAt, 'Asia/Taipei', "yyyy-MM-dd'T'HH:mm:ssXXX"),
           };
         }),
       );
@@ -57,7 +123,7 @@ export class PqcGatewayService {
       return {
         success: true,
         message: 'Alarm received successfully',
-        data: { updatedEvents },
+        data: { updatedAlarms },
       };
     } catch (error) {
       console.error('Error updating pqc-gateway alarm:', error);
@@ -67,5 +133,92 @@ export class PqcGatewayService {
         errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
       };
     }
+  }
+
+  async getAlarms(
+    getPqcGatewayAlarmsDto: GetPqcGatewayAlarmsDto,
+  ): Promise<ServiceResult<{ alarms: Alarm[]; total: number }>> {
+    try {
+      const {
+        page,
+        limit,
+        alarmType,
+        alarmStatus,
+        sortBy,
+        sortOrder,
+        startDate,
+        endDate,
+        startTimestamp,
+        endTimestamp,
+      } = getPqcGatewayAlarmsDto;
+
+      if ((startDate && startTimestamp) || (endDate && endTimestamp)) {
+        return {
+          success: false,
+          message: 'Please provide either date or timestamp, not both',
+          errorCode: ErrorCode.INVALID_DATE_PARAMETERS,
+        };
+      }
+
+      const skip = (page - 1) * limit;
+
+      const queryBuilder = this.alarmRepository.createQueryBuilder('alarm');
+
+      if (alarmType) {
+        queryBuilder.andWhere('alarm.alarmType = :alarmType', { alarmType });
+      }
+
+      if (alarmStatus) {
+        queryBuilder.andWhere('alarm.alarmStatus = :alarmStatus', { alarmStatus });
+      }
+
+      let finalStartDate: Date | undefined;
+      let finalEndDate: Date | undefined;
+
+      if (startTimestamp) {
+        finalStartDate = new Date(startTimestamp);
+        console.log('finalStartDate', finalStartDate);
+      } else if (startDate) {
+        finalStartDate = startDate;
+      }
+
+      if (endTimestamp) {
+        finalEndDate = new Date(endTimestamp);
+        console.log('finalEndDate', finalEndDate);
+      } else if (endDate) {
+        finalEndDate = endDate;
+      }
+
+      if (finalStartDate) {
+        console.log('finalStartDate', finalStartDate);
+        queryBuilder.andWhere('alarm.createdAt >= :startDate', { startDate: finalStartDate });
+      }
+
+      if (finalEndDate) {
+        queryBuilder.andWhere('alarm.createdAt <= :endDate', { endDate: finalEndDate });
+      }
+
+      queryBuilder.orderBy(`alarm.${sortBy}`, sortOrder);
+
+      const [alarms, total] = await queryBuilder.skip(skip).take(limit).getManyAndCount();
+
+      return {
+        success: true,
+        message: 'Alarms retrieved successfully',
+        data: { alarms, total },
+      };
+    } catch (error) {
+      console.error('Error retrieving alarms:', error);
+      return {
+        success: false,
+        message: 'Failed to retrieve alarms',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+    }
+  }
+
+  private async createAlarm(createAlarmDto: CreateAlarmDto): Promise<Alarm> {
+    const alarm = this.alarmRepository.create(createAlarmDto);
+    return this.alarmRepository.save(alarm);
   }
 }

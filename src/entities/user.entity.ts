@@ -1,5 +1,7 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
-import {  AccountRole} from 'src/common/enums';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { AccountRole } from 'src/common/enums';
+import { Transform } from 'class-transformer';
+import { formatInTimeZone } from 'date-fns-tz';
 
 @Entity()
 export class User {
@@ -12,7 +14,7 @@ export class User {
   @Column({ nullable: false })
   password: string;
 
-  @Column({nullable:true , default:""})
+  @Column({ nullable: true, default: '' })
   name: string;
 
   @Column({
@@ -22,10 +24,11 @@ export class User {
   })
   role: AccountRole;
 
-
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({ type: 'timestamptz' })
+  @Transform(({ value }) => (value ? formatInTimeZone(value, 'Asia/Taipei', 'yyyy-MM-dd HH:mm:ssXXX') : null))
   createdAt: Date;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
+  @UpdateDateColumn({ type: 'timestamptz' })
+  @Transform(({ value }) => (value ? formatInTimeZone(value, 'Asia/Taipei', 'yyyy-MM-dd HH:mm:ssXXX') : null))
   updatedAt: Date;
 }
