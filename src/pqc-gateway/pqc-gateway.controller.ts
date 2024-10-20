@@ -24,12 +24,16 @@ import {
   GetPqcGatewayAlarmsDto,
 } from './dto';
 import { AlarmStatus, AlarmType } from 'src/common/enums';
+import { LoggerService } from 'src/logger/logger.service';
 
 @ApiTags('pqc-gateway')
 @Controller('pqcGateway')
 @UseInterceptors(ClassSerializerInterceptor)
 export class PqcGatewayController {
-  constructor(private readonly pqcGatewayService: PqcGatewayService) {}
+  constructor(
+    private readonly pqcGatewayService: PqcGatewayService,
+    private readonly logger: LoggerService,
+  ) {}
 
   @Post('status_ind')
   @ApiOperation({ summary: 'Update status of PQC Gateway' })
@@ -55,14 +59,26 @@ export class PqcGatewayController {
     type: PqcGatewayErrorResponseDto,
   })
   async updatePqcGatewayStatus(@Body() statusData: PqcGatewayStatusDto) {
-    console.log('pqc-gateway-status', statusData);
+    this.logger.log(
+      'Attempting to update PQC Gateway status',
+      'PqcGatewayController - updatePqcGatewayStatus',
+      statusData,
+    );
+
     const result = await this.pqcGatewayService.updateDevicesStatus(statusData);
     if (result.success) {
+      this.logger.log('PQC Gateway status updated successfully', 'PqcGatewayController', statusData);
       return {
         result: 'success',
         deviceCtrl: result.data.deviceCtrl,
       };
     } else {
+      this.logger.error(
+        'Failed to update PQC Gateway status',
+        result.message,
+        'PqcGatewayController - updatePqcGatewayStatus',
+        statusData,
+      );
       throw new HttpException(
         {
           result: 'error',
@@ -98,14 +114,27 @@ export class PqcGatewayController {
     type: PqcGatewayErrorResponseDto,
   })
   async updatePqcGatewayAlarm(@Body() alarmData: PqcGatewayAlarmDto) {
+    this.logger.log(
+      'Attempting to update PQC Gateway alarm',
+      'PqcGatewayController - updatePqcGatewayAlarm',
+      alarmData,
+    );
+
     const result = await this.pqcGatewayService.updatePqcGatewayAlarm(alarmData);
     if (result.success) {
+      this.logger.log('PQC Gateway alarm updated successfully', 'PqcGatewayController', result.data);
       return {
         result: 'success',
         message: result.message,
         updatedAlarms: result.data.updatedAlarms,
       };
     } else {
+      this.logger.error(
+        'Failed to update PQC Gateway alarm',
+        result.message,
+        'PqcGatewayController - updatePqcGatewayAlarm',
+        alarmData,
+      );
       throw new HttpException(
         {
           result: 'error',
@@ -142,11 +171,28 @@ export class PqcGatewayController {
   @ApiResponse({ status: 200, description: 'Alarms retrieved successfully.' })
   @ApiResponse({ status: 500, description: 'Internal Server Error' })
   async getPqcGatewayAlarms(@Query() getPqcGatewayAlarmsDto: GetPqcGatewayAlarmsDto) {
+    this.logger.log(
+      'Fetching PQC Gateway alarms',
+      'PqcGatewayController - getPqcGatewayAlarms',
+      getPqcGatewayAlarmsDto,
+    );
+
     const result = await this.pqcGatewayService.getAlarms(getPqcGatewayAlarmsDto);
 
     if (result.success) {
+      this.logger.log(
+        'Successfully retrieved PQC Gateway alarms',
+        'PqcGatewayController - getPqcGatewayAlarms',
+        result.data,
+      );
       return result.data;
     } else {
+      this.logger.error(
+        'Failed to retrieve PQC Gateway alarms',
+        result.message,
+        'PqcGatewayController - getPqcGatewayAlarms',
+        getPqcGatewayAlarmsDto,
+      );
       throw new HttpException(
         { message: result.message, error: result.errorCode },
         mapErrorCodeToHttpStatus(result.errorCode),

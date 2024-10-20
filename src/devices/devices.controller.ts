@@ -22,6 +22,7 @@ import { DevicesService } from './devices.service';
 import { CryptoService } from './crypto.service';
 import { EventsService } from 'src/events/events.service';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
+import { LoggerService } from 'src/logger/logger.service';
 
 @ApiTags('devices')
 @Controller('devices')
@@ -32,6 +33,7 @@ export class DevicesController {
     private readonly devicesService: DevicesService,
     private readonly cryptoService: CryptoService,
     private readonly eventsService: EventsService,
+    private readonly logger: LoggerService,
   ) {}
 
   @Post('register')
@@ -40,8 +42,11 @@ export class DevicesController {
   @ApiResponse({ status: 201, description: 'The device has been successfully registered.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
   async register(@Body() registerDeviceDto: RegisterDeviceDto) {
+    this.logger.log('Attempting to register device', 'DevicesController', registerDeviceDto);
+
     const result = await this.devicesService.register(registerDeviceDto);
     if (result.success) {
+      this.logger.log('Device registered successfully', 'DevicesController - register', result.data);
       await this.eventsService.createEvent({
         level: EventLevel.INFO,
         type: EventType.DEVICE_REGISTRATION,
@@ -56,6 +61,12 @@ export class DevicesController {
         data: result.data,
       });
     } else {
+      this.logger.error(
+        'Device registration failed',
+        result.message,
+        'DevicesController - register',
+        registerDeviceDto,
+      );
       await this.eventsService.createEvent({
         level: EventLevel.ERROR,
         type: EventType.DEVICE_REGISTRATION,
@@ -81,8 +92,13 @@ export class DevicesController {
   @ApiResponse({ status: 200, description: 'The device has been successfully authenticated.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async authenticate(@Body() authenticateDeviceDto: AuthenticateDeviceDto) {
+    this.logger.log('Attempting to authenticate device', 'DevicesController - authenticate', authenticateDeviceDto);
+
     const result = await this.devicesService.authenticate(authenticateDeviceDto);
     if (result.success) {
+      this.logger.log('Device authenticated successfully', 'DevicesController - authenticate', {
+        deviceId: authenticateDeviceDto.deviceId,
+      });
       await this.eventsService.createEvent({
         level: EventLevel.INFO,
         type: EventType.DEVICE_AUTHENTICATION,
@@ -96,6 +112,10 @@ export class DevicesController {
         message: result.message,
       });
     } else {
+      this.logger.warn('Device authentication failed', 'DevicesController - authenticate', {
+        deviceId: authenticateDeviceDto.deviceId,
+        reason: result.message,
+      });
       await this.eventsService.createEvent({
         level: EventLevel.WARNING,
         type: EventType.DEVICE_AUTHENTICATION,
@@ -200,14 +220,21 @@ export class DevicesController {
   @ApiResponse({ status: 200, description: 'The device has been successfully updated.' })
   @ApiResponse({ status: 404, description: 'Device not found.' })
   async updateDevice(@Param('deviceId') deviceId: string, @Body() updateDeviceDto: UpdateDeviceDto) {
+    this.logger.log('Attempting to update device', 'DevicesController', { deviceId, ...updateDeviceDto });
+
     const result = await this.devicesService.updateDevice(deviceId, updateDeviceDto);
     if (result.success) {
+      this.logger.log('Successfully updated device', 'DevicesController - updateDevice', { deviceId, ...result.data });
       return createApiResponse({
         success: true,
         message: result.message,
         data: result.data,
       });
     } else {
+      this.logger.error('Failed to update device', result.message, 'DevicesController - updateDevice', {
+        deviceId,
+        ...updateDeviceDto,
+      });
       throw new HttpException(
         createApiResponse({
           success: false,
@@ -225,13 +252,19 @@ export class DevicesController {
   @ApiResponse({ status: 200, description: 'The device has been successfully deleted.' })
   @ApiResponse({ status: 404, description: 'Device not found.' })
   async deleteDeviceByDeviceId(@Param('deviceId') deviceId: string) {
+    this.logger.log('Attempting to delete device', 'DevicesController - deleteDeviceByDeviceId', { deviceId });
+
     const result = await this.devicesService.deleteDeviceByDeviceId(deviceId);
     if (result.success) {
+      this.logger.log('Successfully deleted device', 'DevicesController', { deviceId });
       return createApiResponse({
         success: true,
         message: result.message,
       });
     } else {
+      this.logger.error('Failed to delete device', result.message, 'DevicesController - deleteDeviceByDeviceId', {
+        deviceId,
+      });
       throw new HttpException(
         createApiResponse({
           success: false,
