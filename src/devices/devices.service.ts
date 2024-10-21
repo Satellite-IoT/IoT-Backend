@@ -262,6 +262,9 @@ export class DevicesService {
         ...deviceData,
       });
     }
+    const now = new Date();
+    device.status = this.getDeviceConnectionStatus(device, now);
+
     return await this.deviceRepository.save(device);
   }
 }

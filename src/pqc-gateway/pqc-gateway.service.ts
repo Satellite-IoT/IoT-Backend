@@ -60,8 +60,11 @@ export class PqcGatewayService {
       for (const deviceInfo of statusData.deviceInfo) {
         const updatedDevice = await this.devicesService.updateOrCreateDevice(deviceInfo);
         deviceCtrl.push({
+          deviceId: updatedDevice.deviceId,
           ipAddr: updatedDevice.ipAddr,
           bandwidth: updatedDevice.flowControlLevel,
+          status: updatedDevice.status,
+          isAuthenticated: updatedDevice.isAuthenticated,
         });
       }
 
