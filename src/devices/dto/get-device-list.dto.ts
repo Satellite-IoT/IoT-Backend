@@ -25,8 +25,8 @@ export class GetDeviceListDto {
     if (value === 'false') return false;
     return value;
   })
-  @ApiPropertyOptional({ description: 'Include pqc-gateway devices', default: false })
-  includePqcGateway?: boolean = false;
+  @ApiPropertyOptional({ description: 'Include pqc-gateway devices', default: true })
+  includePqcGateway?: boolean = true;
 
   @IsOptional()
   @IsEnum(SortField)
