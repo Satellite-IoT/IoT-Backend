@@ -7,12 +7,18 @@ import { ServiceResult } from 'src/common/types';
 import { CryptoService } from './crypto.service';
 import { AuthenticateDeviceDto, GetDeviceListDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
 import { PqcGatewayStatusDto } from 'src/pqc-gateway/dto';
+import { PqcGatewayNetwork } from 'src/entities/pqc-gateway-network.entity';
+import { PqcGatewayConnection } from 'src/entities/pqc-gateway-connection.entity';
 
 @Injectable()
 export class DevicesService {
   constructor(
     @InjectRepository(Device)
     private deviceRepository: Repository<Device>,
+    @InjectRepository(PqcGatewayNetwork)
+    private pqcNetworkRepository: Repository<PqcGatewayNetwork>,
+    @InjectRepository(PqcGatewayConnection)
+    private connectionRepository: Repository<PqcGatewayConnection>,
     private cryptoService: CryptoService,
   ) {}
 
@@ -203,11 +209,43 @@ export class DevicesService {
 
     const [devices, total] = await queryBuilder.skip(skip).take(limit).getManyAndCount();
 
+    // Retrieve network information for PQC Gateways
+    const networkInfos = await this.pqcNetworkRepository.find();
+    const networkInfoMap = new Map(
+      networkInfos.map(info => [info.deviceId, info.networkInfo])
+    );
+
+    // Retrieve device connection relationships
+    const connections = await this.connectionRepository.find();
+    const deviceToGatewayMap = new Map(
+      connections.map(conn => [conn.connectedDeviceId, conn.gatewayDeviceId])
+    );
+
     const now = new Date();
-    const devicesWithStatus = devices.map((device) => ({
-      ...device,
-      status: this.getDeviceConnectionStatus(device, now),
-    }));
+    const devicesWithStatus = devices.map(device => {
+      const devicesWithStatus: any = {
+        ...device,
+        status: this.getDeviceConnectionStatus(device, now),
+      };
+
+      // For PQC Gateway, add network information
+      if (device.deviceType === 'pqc-gateway') {
+        const networkInfo = networkInfoMap.get(device.deviceId);
+        if (networkInfo) {
+          devicesWithStatus.networkInfo = networkInfo;
+          devicesWithStatus.connectedGatewayId = null;
+        }
+      } else {
+        // For regular devices, check if connected to a Gateway
+        const connectedGatewayId = deviceToGatewayMap.get(device.deviceId);
+        if (connectedGatewayId) {
+          devicesWithStatus.networkInfo = null;
+          devicesWithStatus.connectedGatewayId = connectedGatewayId;
+        }
+      }
+
+      return devicesWithStatus;
+    });
 
     return {
       success: true,

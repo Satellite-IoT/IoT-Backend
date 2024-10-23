@@ -15,6 +15,8 @@ import {
   PqcGatewayStatusDto,
 } from './dto';
 import { formatInTimeZone } from 'date-fns-tz';
+import { PqcGatewayNetwork } from 'src/entities/pqc-gateway-network.entity';
+import { PqcGatewayConnection } from 'src/entities/pqc-gateway-connection.entity';
 
 @Injectable()
 export class PqcGatewayService {
@@ -25,6 +27,10 @@ export class PqcGatewayService {
     private eventRepository: Repository<Event>,
     @InjectRepository(Alarm)
     private alarmRepository: Repository<Alarm>,
+    @InjectRepository(PqcGatewayNetwork)
+    private pqcNetworkRepository: Repository<PqcGatewayNetwork>,
+    @InjectRepository(PqcGatewayConnection)
+    private connectionRepository: Repository<PqcGatewayConnection>,
     private devicesService: DevicesService,
     private eventsService: EventsService,
   ) {}
@@ -54,6 +60,24 @@ export class PqcGatewayService {
         deviceName: statusData.deviceName,
         deviceType: 'pqc-gateway',
       });
+
+      await this.pqcNetworkRepository.upsert(
+        {
+          deviceId: statusData.deviceId,
+          networkInfo: statusData.networkInfo,
+        },
+        ['deviceId']
+      );
+
+      await this.connectionRepository.delete({ gatewayDeviceId: statusData.deviceId });
+      
+      if (statusData.deviceInfo && statusData.deviceInfo.length > 0) {
+        const connections = statusData.deviceInfo.map(info => ({
+          gatewayDeviceId: statusData.deviceId,
+          connectedDeviceId: info.deviceId,
+        }));
+        await this.connectionRepository.insert(connections);
+      }
 
       // Update other devices and collect deviceCtrl information
       const deviceCtrl = [];
