@@ -61,6 +61,8 @@ export class PqcGatewayService {
         deviceType: 'pqc-gateway',
       });
 
+      console.log("statusData.networkInfo", statusData.networkInfo)
+
       await this.pqcNetworkRepository.upsert(
         {
           deviceId: statusData.deviceId,
