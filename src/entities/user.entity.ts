@@ -6,13 +6,15 @@ import {
   UpdateDateColumn,
   BeforeInsert,
   BeforeUpdate,
+  Index,
 } from 'typeorm';
 import { AccountRole, FlowControlLevel } from 'src/common/enums';
 import { Exclude, Transform } from 'class-transformer';
 import { formatInTimeZone } from 'date-fns-tz';
 import * as bcrypt from 'bcrypt';
 
-@Entity()
+@Entity('users')
+@Index(['id'])
 export class User {
   @PrimaryGeneratedColumn()
   id: number;

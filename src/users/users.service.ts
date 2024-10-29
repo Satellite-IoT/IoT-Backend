@@ -21,19 +21,19 @@ export class UsersService {
     const { page, limit, sortBy, sortOrder } = getUserListDto;
     const skip = (page - 1) * limit;
 
-    const queryBuilder = this.userRepository.createQueryBuilder('user');
+    const queryBuilder = this.userRepository.createQueryBuilder('users');
 
     // Add sorting
     if (this.isValidSortField(sortBy)) {
       if (['createdAt', 'updatedAt'].includes(sortBy)) {
         queryBuilder
-          .orderBy(`CASE WHEN user.${sortBy} IS NULL THEN 1 ELSE 0 END`, 'ASC')
-          .addOrderBy(`user.${sortBy}`, sortOrder);
+          .orderBy(`CASE WHEN users.${sortBy} IS NULL THEN 1 ELSE 0 END`, 'ASC')
+          .addOrderBy(`users.${sortBy}`, sortOrder);
       } else {
-        queryBuilder.orderBy(`user.${sortBy}`, sortOrder);
+        queryBuilder.orderBy(`users.${sortBy}`, sortOrder);
       }
     } else {
-      queryBuilder.orderBy('user.id', 'ASC'); // Default sorting
+      queryBuilder.orderBy('users.id', 'ASC'); // Default sorting
     }
 
     const [users, total] = await queryBuilder.skip(skip).take(limit).getManyAndCount();
