@@ -10,6 +10,7 @@ import { EventsModule } from './events/events.module';
 import { PqcGatewayModule } from './pqc-gateway/pqc-gateway.module';
 import { AuthModule } from './auth/auth.module';
 import { LoggerModule } from './logger/logger.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { LoggerModule } from './logger/logger.module';
     EventsModule,
     AuthModule,
     LoggerModule,
+    UsersModule,
   ],
   controllers: [],
   providers: [],
