@@ -1,18 +1,31 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { AccountRole } from 'src/common/enums';
-import { Transform } from 'class-transformer';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  BeforeInsert,
+  BeforeUpdate,
+} from 'typeorm';
+import { AccountRole, FlowControlLevel } from 'src/common/enums';
+import { Exclude, Transform } from 'class-transformer';
 import { formatInTimeZone } from 'date-fns-tz';
+import * as bcrypt from 'bcrypt';
 
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
-  email: string;
+  @Column({ unique: true, nullable: true })
+  username: string;
 
   @Column({ nullable: false })
+  @Exclude({ toPlainOnly: true })
   password: string;
+
+  @Column({ unique: true })
+  email: string;
 
   @Column({ nullable: true, default: '' })
   name: string;
@@ -24,6 +37,13 @@ export class User {
   })
   role: AccountRole;
 
+  @Column({
+    type: 'enum',
+    enum: FlowControlLevel,
+    default: FlowControlLevel.MEDIUM,
+  })
+  flowControlLevel: FlowControlLevel;
+
   @CreateDateColumn({ type: 'timestamptz' })
   @Transform(({ value }) => (value ? formatInTimeZone(value, 'Asia/Taipei', 'yyyy-MM-dd HH:mm:ssXXX') : null))
   createdAt: Date;
@@ -31,4 +51,25 @@ export class User {
   @UpdateDateColumn({ type: 'timestamptz' })
   @Transform(({ value }) => (value ? formatInTimeZone(value, 'Asia/Taipei', 'yyyy-MM-dd HH:mm:ssXXX') : null))
   updatedAt: Date;
+
+  async hashPassword() {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  }
+
+  async validatePassword(password: string): Promise<boolean> {
+    return bcrypt.compare(password, this.password);
+  }
+
+  @BeforeInsert()
+  async beforeInsert() {
+    await this.hashPassword();
+  }
+
+  @BeforeUpdate()
+  async beforeUpdate() {
+    if (this.password) {
+      await this.hashPassword();
+    }
+  }
 }

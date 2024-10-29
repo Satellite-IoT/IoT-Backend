@@ -14,20 +14,21 @@ export class AuthService {
     private userRepository: Repository<User>,
     private jwtService: JwtService,
   ) {}
+
   async signin(signinAuthDto: AuthSignInDto, res: Response) {
-    const email = signinAuthDto.email;
-    const password = signinAuthDto.password;
+    const { email, password } = signinAuthDto;
     const user = await this.userRepository.findOne({ where: { email } });
 
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException('Invalid credentials');
     }
-    if (user?.password !== password) {
-      throw new UnauthorizedException();
+
+    const isPasswordValid = await user.validatePassword(password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const payload = { sub: user.id.toString(), role: 'user' };
-
     const access_token = await this.jwtService.signAsync(payload);
 
     res.cookie('iot_token', access_token, {
@@ -37,6 +38,7 @@ export class AuthService {
       sameSite: 'strict',
       // domain:'localhost'
     });
+
     res.cookie('is_login', 'true', {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production', // 僅在生產環境中啟用 secure 標誌
@@ -45,18 +47,15 @@ export class AuthService {
       // domain:'localhost'
     });
 
-    return {
-      access_token: access_token,
-    };
+    return { access_token };
   }
 
   async signup(signupAuthDto: AuthSignUpDto) {
-    const email = signupAuthDto.email;
-    const password = signupAuthDto.password;
+    const { email, password } = signupAuthDto;
 
     const isExisted = await this.userRepository.exists({ where: { email } });
     if (isExisted) {
-      throw new BadRequestException();
+      throw new BadRequestException('Email already exists');
     }
 
     try {
@@ -67,11 +66,11 @@ export class AuthService {
       });
 
       await this.userRepository.save(user);
-    } catch {
-      throw new BadRequestException();
-    }
 
-    return { msg: 'success' };
+      return { msg: 'success' };
+    } catch (error) {
+      throw new BadRequestException('Failed to create user');
+    }
   }
 
   signout(res: Response) {
