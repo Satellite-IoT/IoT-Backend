@@ -61,9 +61,9 @@ export class UsersService {
   }
 
   async updateUser(id: number, updateUserDto: UpdateUserDto): Promise<ServiceResult<User>> {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const exists = await this.userRepository.exist({ where: { id } });
 
-    if (!user) {
+    if (!exists) {
       return {
         success: false,
         message: 'User not found',
@@ -71,11 +71,21 @@ export class UsersService {
       };
     }
 
-    Object.assign(user, updateUserDto);
-    user.updatedAt = new Date();
+    const allowedFields = ['name', 'username', 'flowControlLevel'];
+
+    const filteredData = Object.keys(updateUserDto)
+      .filter((key) => allowedFields.includes(key))
+      .reduce((obj, key) => {
+        obj[key] = updateUserDto[key];
+        return obj;
+      }, {} as Partial<User>);
+
+    filteredData.updatedAt = new Date();
 
     try {
-      const updatedUser = await this.userRepository.save(user);
+      await this.userRepository.update(id, filteredData);
+      const updatedUser = await this.userRepository.findOne({ where: { id } });
+
       return {
         success: true,
         message: 'User updated successfully',
