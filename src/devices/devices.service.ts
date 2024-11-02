@@ -211,18 +211,14 @@ export class DevicesService {
 
     // Retrieve network information for PQC Gateways
     const networkInfos = await this.pqcNetworkRepository.find();
-    const networkInfoMap = new Map(
-      networkInfos.map(info => [info.deviceId, info.networkInfo])
-    );
+    const networkInfoMap = new Map(networkInfos.map((info) => [info.deviceId, info.networkInfo]));
 
     // Retrieve device connection relationships
     const connections = await this.connectionRepository.find();
-    const deviceToGatewayMap = new Map(
-      connections.map(conn => [conn.connectedDeviceId, conn.gatewayDeviceId])
-    );
+    const deviceToGatewayMap = new Map(connections.map((conn) => [conn.connectedDeviceId, conn.gatewayDeviceId]));
 
     const now = new Date();
-    const devicesWithStatus = devices.map(device => {
+    const devicesWithStatus = devices.map((device) => {
       const devicesWithStatus: any = {
         ...device,
         status: this.getDeviceConnectionStatus(device, now),

@@ -34,7 +34,7 @@ export class AuthService {
     res.cookie('iot_token', access_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // 僅在生產環境中啟用 secure 標誌
-      maxAge: 1000 * 60 * 60 * 24 * 7,
+      maxAge: 1000 * 60 * 60 * 24,
       sameSite: 'strict',
       // domain:'localhost'
     });
@@ -42,12 +42,20 @@ export class AuthService {
     res.cookie('is_login', 'true', {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production', // 僅在生產環境中啟用 secure 標誌
-      maxAge: 1000 * 60 * 60 * 24 * 7,
+      maxAge: 1000 * 60 * 60 * 24,
       sameSite: 'strict',
       // domain:'localhost'
     });
 
-    return { access_token };
+    return {
+      access_token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
   }
 
   async signup(signupAuthDto: AuthSignUpDto) {
