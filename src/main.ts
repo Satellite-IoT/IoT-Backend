@@ -27,7 +27,11 @@ async function bootstrap() {
     }),
   );
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
-  app.enableCors();
+  app.enableCors({
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
   console.log('Using Port:', configService.get<number>('PORT'));
   await app.listen(configService.get<number>('PORT') || 3002);
 }
