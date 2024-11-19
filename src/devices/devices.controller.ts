@@ -133,6 +133,29 @@ export class DevicesController {
     }
   }
 
+  @Get('statistics')
+  @ApiOperation({ summary: 'Get device statistics' })
+  @ApiResponse({ status: 200, description: 'Returns device statistics.' })
+  async getDeviceStatistics() {
+    const result = await this.devicesService.getDeviceStatistics();
+    if (result.success) {
+      return createApiResponse({
+        success: true,
+        message: result.message,
+        data: result.data,
+      });
+    } else {
+      throw new HttpException(
+        createApiResponse({
+          success: false,
+          message: result.message,
+          error: result.errorCode,
+        }),
+        mapErrorCodeToHttpStatus(result.errorCode),
+      );
+    }
+  }
+
   @Get('id/:id')
   @ApiOperation({ summary: 'Get a device by ID' })
   @ApiParam({ name: 'id', type: 'number' })

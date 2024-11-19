@@ -5,7 +5,13 @@ import { Device } from 'src/entities';
 import { ErrorCode, SortField } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { CryptoService } from './crypto.service';
-import { AuthenticateDeviceDto, GetDeviceListDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
+import {
+  AuthenticateDeviceDto,
+  DeviceStatisticsResponseDto,
+  GetDeviceListDto,
+  RegisterDeviceDto,
+  UpdateDeviceDto,
+} from './dto';
 import { PqcGatewayStatusDto } from 'src/pqc-gateway/dto';
 import { PqcGatewayNetwork } from 'src/entities/pqc-gateway-network.entity';
 import { PqcGatewayConnection } from 'src/entities/pqc-gateway-connection.entity';
@@ -300,5 +306,43 @@ export class DevicesService {
     device.status = this.getDeviceConnectionStatus(device, now);
 
     return await this.deviceRepository.save(device);
+  }
+
+  async getDeviceStatistics(): Promise<ServiceResult<DeviceStatisticsResponseDto>> {
+    try {
+      const daysAgo = 7;
+      const now = new Date();
+      const periodAgo = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+
+      const result = await this.deviceRepository
+        .createQueryBuilder('device')
+        .select([
+          'COUNT(device.id) as "totalDevices"',
+          'COUNT(CASE WHEN device.isRegistered = true THEN 1 END) as "registeredDevices"',
+          'COUNT(CASE WHEN device.isAuthenticated = true THEN 1 END) as "authenticatedDevices"',
+          'COUNT(CASE WHEN device.createdAt >= :periodAgo THEN 1 END) as "recentlyAddedDevices"',
+        ])
+        .setParameter('periodAgo', periodAgo)
+        .getRawOne();
+
+      return {
+        success: true,
+        message: 'Device statistics retrieved successfully',
+        data: {
+          totalDevices: parseInt(result.totalDevices),
+          registeredDevices: parseInt(result.registeredDevices),
+          authenticatedDevices: parseInt(result.authenticatedDevices),
+          recentlyAddedDevices: parseInt(result.recentlyAddedDevices),
+        },
+      };
+    } catch (error) {
+      console.error('Error getting device statistics:', error);
+
+      return {
+        success: false,
+        message: 'Failed to retrieve device statistics',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+    }
   }
 }
