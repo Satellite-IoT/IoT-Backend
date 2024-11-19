@@ -11,7 +11,6 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
 import { createApiResponse } from 'src/common/utils/response.util';
-import { EventsService } from 'src/events/events.service';
 import { PqcGatewayService } from './pqc-gateway.service';
 import {
   PqcGatewayStatusDto,

@@ -20,7 +20,6 @@ import { createApiResponse } from '../common/utils/response.util';
 import { AuthenticateDeviceDto, GetDeviceListDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
 import { DevicesService } from './devices.service';
 import { CryptoService } from './crypto.service';
-import { EventsService } from 'src/events/events.service';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
 import { LoggerService } from 'src/logger/logger.service';
 
@@ -32,7 +31,6 @@ export class DevicesController {
   constructor(
     private readonly devicesService: DevicesService,
     private readonly cryptoService: CryptoService,
-    private readonly eventsService: EventsService,
     private readonly logger: LoggerService,
   ) {}
 
@@ -47,13 +45,6 @@ export class DevicesController {
     const result = await this.devicesService.register(registerDeviceDto);
     if (result.success) {
       this.logger.log('Device registered successfully', 'DevicesController - register', result.data);
-      await this.eventsService.createEvent({
-        level: EventLevel.INFO,
-        type: EventType.DEVICE_REGISTRATION,
-        tag: EventTag.DEVICE,
-        message: 'Device registered successfully',
-        details: `Device [${registerDeviceDto.deviceId}] has been registered successfully`,
-      });
 
       return createApiResponse({
         success: true,
@@ -67,13 +58,6 @@ export class DevicesController {
         'DevicesController - register',
         registerDeviceDto,
       );
-      await this.eventsService.createEvent({
-        level: EventLevel.ERROR,
-        type: EventType.DEVICE_REGISTRATION,
-        tag: EventTag.DEVICE,
-        message: 'Device registration failed',
-        details: `Failed to register device [${registerDeviceDto.deviceId}]: ${result.message}`,
-      });
 
       throw new HttpException(
         createApiResponse({
@@ -99,13 +83,6 @@ export class DevicesController {
       this.logger.log('Device authenticated successfully', 'DevicesController - authenticate', {
         deviceId: authenticateDeviceDto.deviceId,
       });
-      await this.eventsService.createEvent({
-        level: EventLevel.INFO,
-        type: EventType.DEVICE_AUTHENTICATION,
-        tag: EventTag.DEVICE,
-        message: 'Device authenticated successfully',
-        details: `Device [${authenticateDeviceDto.deviceId}] has been authenticated successfully`,
-      });
 
       return createApiResponse({
         success: true,
@@ -115,13 +92,6 @@ export class DevicesController {
       this.logger.warn('Device authentication failed', 'DevicesController - authenticate', {
         deviceId: authenticateDeviceDto.deviceId,
         reason: result.message,
-      });
-      await this.eventsService.createEvent({
-        level: EventLevel.WARNING,
-        type: EventType.DEVICE_AUTHENTICATION,
-        tag: EventTag.DEVICE,
-        message: 'Device authentication failed',
-        details: `Failed to authenticate device [${authenticateDeviceDto.deviceId}]: ${result.message}`,
       });
 
       throw new HttpException(

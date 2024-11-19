@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { AlarmType, ErrorCode, EventLevel, EventTag, EventType } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
-import { EventsService } from 'src/events/events.service';
 import { Alarm, Device, Event } from 'src/entities';
 import {
   AlarmDto,
@@ -32,7 +31,6 @@ export class PqcGatewayService {
     @InjectRepository(PqcGatewayConnection)
     private connectionRepository: Repository<PqcGatewayConnection>,
     private devicesService: DevicesService,
-    private eventsService: EventsService,
   ) {}
 
   async updateDevicesStatus(
@@ -66,13 +64,13 @@ export class PqcGatewayService {
           deviceId: statusData.deviceId,
           networkInfo: statusData.networkInfo,
         },
-        ['deviceId']
+        ['deviceId'],
       );
 
       // await this.connectionRepository.delete({ gatewayDeviceId: statusData.deviceId });
-      
+
       if (statusData.deviceInfo && statusData.deviceInfo.length > 0) {
-        const connections = statusData.deviceInfo.map(info => ({
+        const connections = statusData.deviceInfo.map((info) => ({
           gatewayDeviceId: statusData.deviceId,
           connectedDeviceId: info.deviceId,
         }));
