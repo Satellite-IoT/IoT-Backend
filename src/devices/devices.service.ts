@@ -313,92 +313,67 @@ export class DevicesService {
       const daysAgo = 7;
       const now = new Date();
       const periodAgo = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
-
-      const mainStats = await this.deviceRepository
-        .createQueryBuilder('device')
-        .select([
-          'COUNT(device.id) as "totalDevices"',
-          'COUNT(CASE WHEN device.isRegistered = true THEN 1 END) as "registeredDevices"',
-          'COUNT(CASE WHEN device.isAuthenticated = true THEN 1 END) as "authenticatedDevices"',
-          'COUNT(CASE WHEN device.createdAt >= :periodAgo THEN 1 END) as "recentlyAddedDevices"',
-          'COUNT(CASE WHEN device.status = \'connected\' THEN 1 END) as "connectedDevices"',
-          'COUNT(CASE WHEN device.status = \'disconnected\' THEN 1 END) as "disconnectedDevices"',
-          'COUNT(CASE WHEN device.status = \'unknown\' THEN 1 END) as "unknownDevices"',
-        ])
-        .setParameter('periodAgo', periodAgo)
-        .getRawOne();
-
-      const deviceTypes = await this.deviceRepository
-        .createQueryBuilder('device')
-        .select(['COALESCE(device.deviceType, \'unspecified\') as "deviceType"', 'COUNT(device.id) as count'])
-        .groupBy('device.deviceType')
-        .getRawMany();
-      console.log('deviceTypes:', deviceTypes); // 加入這行來看實際的查詢結果
-
-      const flowControlLevels = await this.deviceRepository
-        .createQueryBuilder('device')
-        .select(['device.flowControlLevel as "flowControlLevel"', 'COUNT(device.id) as count'])
-        .groupBy('device.flowControlLevel')
-        .getRawMany();
-
-      console.log('flowControlLevels:', flowControlLevels); // 加入這行來看實際的查詢結果
-
-      // 4. 設備年齡分布
       const oneDaysAgo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-      const ageDistribution = await this.deviceRepository
-        .createQueryBuilder('device')
-        .select([
-          'COUNT(CASE WHEN device.createdAt >= :oneDaysAgo THEN 1 END) as "lessThan1Days"',
-          'COUNT(CASE WHEN device.createdAt >= :sevenDaysAgo AND device.createdAt < :oneDaysAgo THEN 1 END) as "lessThan7Days"',
-          'COUNT(CASE WHEN device.createdAt >= :thirtyDaysAgo AND device.createdAt < :sevenDaysAgo THEN 1 END) as "lessThan30Days"',
-          'COUNT(CASE WHEN device.createdAt < :thirtyDaysAgo THEN 1 END) as "moreThan30Days"',
-        ])
-        .setParameter('oneDaysAgo', oneDaysAgo)
-        .setParameter('sevenDaysAgo', sevenDaysAgo)
-        .setParameter('thirtyDaysAgo', thirtyDaysAgo)
-        .getRawOne();
+      const devices = await this.deviceRepository.find();
 
-      const deviceTypeDistribution = deviceTypes.reduce((acc, { deviceType, count }) => {
-        acc[deviceType] = parseInt(count);
+      const devicesWithCurrentStatus = devices.map((device) => ({
+        ...device,
+        currentStatus: this.getDeviceConnectionStatus(device, now),
+      }));
+
+      const mainStats = {
+        totalDevices: devices.length,
+        registeredDevices: devicesWithCurrentStatus.filter((d) => d.isRegistered).length,
+        authenticatedDevices: devicesWithCurrentStatus.filter((d) => d.isAuthenticated).length,
+        recentlyAddedDevices: devicesWithCurrentStatus.filter((d) => d.createdAt >= periodAgo).length,
+      };
+
+      const connectionStatusDistribution = {
+        connected: devicesWithCurrentStatus.filter((d) => d.currentStatus === 'connected').length,
+        disconnected: devicesWithCurrentStatus.filter((d) => d.currentStatus === 'disconnected').length,
+        unknown: devicesWithCurrentStatus.filter((d) => d.currentStatus === 'unknown').length,
+      };
+
+      const deviceTypeDistribution = devicesWithCurrentStatus.reduce((acc, device) => {
+        const deviceType = device.deviceType || 'unspecified';
+        acc[deviceType] = (acc[deviceType] || 0) + 1;
         return acc;
       }, {});
 
-      const flowControlDistribution = flowControlLevels.reduce(
-        (acc, { flowControlLevel, count }) => {
-          acc[flowControlLevel.toLowerCase()] = parseInt(count);
+      const flowControlDistribution = devicesWithCurrentStatus.reduce(
+        (acc, device) => {
+          if (device.flowControlLevel) {
+            const level = device.flowControlLevel.toLowerCase();
+            acc[level] = (acc[level] || 0) + 1;
+          }
           return acc;
         },
         { high: 0, medium: 0, low: 0 },
       );
 
+      const ageDistribution = {
+        lessThan1Days: devicesWithCurrentStatus.filter((d) => d.createdAt >= oneDaysAgo).length,
+        lessThan7Days: devicesWithCurrentStatus.filter((d) => d.createdAt >= sevenDaysAgo && d.createdAt < oneDaysAgo)
+          .length,
+        lessThan30Days: devicesWithCurrentStatus.filter(
+          (d) => d.createdAt >= thirtyDaysAgo && d.createdAt < sevenDaysAgo,
+        ).length,
+        moreThan30Days: devicesWithCurrentStatus.filter((d) => d.createdAt < thirtyDaysAgo).length,
+      };
+
       return {
         success: true,
         message: 'Device statistics retrieved successfully',
         data: {
-          totalDevices: parseInt(mainStats.totalDevices),
-          registeredDevices: parseInt(mainStats.registeredDevices),
-          authenticatedDevices: parseInt(mainStats.authenticatedDevices),
-          recentlyAddedDevices: parseInt(mainStats.recentlyAddedDevices),
-
-          connectionStatusDistribution: {
-            connected: parseInt(mainStats.connectedDevices),
-            disconnected: parseInt(mainStats.disconnectedDevices),
-            unknown: parseInt(mainStats.unknownDevices),
-          },
-
+          ...mainStats,
+          connectionStatusDistribution,
           deviceTypeDistribution,
           flowControlDistribution,
-
           timeStats: {
-            devicesByAgeGroups: {
-              lessThan1Days: parseInt(ageDistribution.lessThan1Days),
-              lessThan7Days: parseInt(ageDistribution.lessThan7Days),
-              lessThan30Days: parseInt(ageDistribution.lessThan30Days),
-              moreThan30Days: parseInt(ageDistribution.moreThan30Days),
-            },
+            devicesByAgeGroups: ageDistribution,
           },
         },
       };
