@@ -19,6 +19,7 @@ export function mapErrorCodeToHttpStatus(errorCode: ErrorCode): HttpStatus {
     //   return HttpStatus.FORBIDDEN; // 403
 
     case ErrorCode.DEVICE_NOT_FOUND:
+    case ErrorCode.USER_NOT_FOUND:
       return HttpStatus.NOT_FOUND; // 404
 
     case ErrorCode.DEVICE_ALREADY_EXISTS:
