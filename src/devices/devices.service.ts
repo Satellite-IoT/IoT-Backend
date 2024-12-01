@@ -313,9 +313,6 @@ export class DevicesService {
       const daysAgo = 7;
       const now = new Date();
       const periodAgo = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
-      const oneDaysAgo = new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000);
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
       const devices = await this.deviceRepository.find();
 
@@ -354,14 +351,27 @@ export class DevicesService {
         { high: 0, medium: 0, low: 0 },
       );
 
+      const getDaysDifference = (createdAt: Date): number => {
+        return (now.getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000);
+      };
+
       const ageDistribution = {
-        lessThan1Days: devicesWithCurrentStatus.filter((d) => d.createdAt >= oneDaysAgo).length,
-        lessThan7Days: devicesWithCurrentStatus.filter((d) => d.createdAt >= sevenDaysAgo && d.createdAt < oneDaysAgo)
-          .length,
-        lessThan30Days: devicesWithCurrentStatus.filter(
-          (d) => d.createdAt >= thirtyDaysAgo && d.createdAt < sevenDaysAgo,
-        ).length,
-        moreThan30Days: devicesWithCurrentStatus.filter((d) => d.createdAt < thirtyDaysAgo).length,
+        lessThan1Days: devicesWithCurrentStatus.filter((d) => {
+          const diffDays = getDaysDifference(d.createdAt);
+          return diffDays >= 0 && diffDays < 1;
+        }).length,
+        lessThan7Days: devicesWithCurrentStatus.filter((d) => {
+          const diffDays = getDaysDifference(d.createdAt);
+          return diffDays >= 1 && diffDays < 7;
+        }).length,
+        lessThan30Days: devicesWithCurrentStatus.filter((d) => {
+          const diffDays = getDaysDifference(d.createdAt);
+          return diffDays >= 7 && diffDays < 30;
+        }).length,
+        moreThan30Days: devicesWithCurrentStatus.filter((d) => {
+          const diffDays = getDaysDifference(d.createdAt);
+          return diffDays >= 30;
+        }).length,
       };
 
       return {

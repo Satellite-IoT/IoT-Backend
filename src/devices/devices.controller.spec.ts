@@ -2,24 +2,51 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DevicesController } from './devices.controller';
 import { DevicesService } from './devices.service';
 import { CryptoService } from './crypto.service';
+import { LoggerService } from 'src/logger/logger.service';
+import { RegisterDeviceDto, AuthenticateDeviceDto, UpdateDeviceDto, GetDeviceListDto } from './dto';
 import { HttpException } from '@nestjs/common';
-import { createApiResponse } from '../common/utils/response.util';
-import { ErrorCode } from '../common/enums/error-codes.enum';
-import { Device } from '../entities/device.entity';
+import { ErrorCode, FlowControlLevel, SortField, SortOrder } from 'src/common/enums';
+import { Device } from 'src/entities';
 
 describe('DevicesController', () => {
   let controller: DevicesController;
   let devicesService: DevicesService;
   let cryptoService: CryptoService;
+  let loggerService: LoggerService;
 
-  const mockDevice: Device = {
+  // Mock Data
+  const mockDevice: Partial<Device> = {
     id: 1,
-    deviceId: 'testDeviceId',
-    publicKey: 'testPublicKey',
-    deviceType: 'testType',
+    deviceId: 'test-device-1',
+    publicKey: 'test-public-key',
+    deviceType: 'test-type',
+    deviceName: 'Test Device',
+    flowControlLevel: FlowControlLevel.MEDIUM,
+    status: 'disconnected',
+    isRegistered: true,
     isAuthenticated: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+  };
+
+  // Mock Services
+  const mockDevicesService = {
+    register: jest.fn(),
+    authenticate: jest.fn(),
+    getDeviceList: jest.fn(),
+    getDeviceStatistics: jest.fn(),
+    getDeviceById: jest.fn(),
+    getDeviceByDeviceId: jest.fn(),
+    updateDevice: jest.fn(),
+    deleteDeviceByDeviceId: jest.fn(),
+  };
+
+  const mockCryptoService = {
+    verify: jest.fn(),
+  };
+
+  const mockLoggerService = {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -28,21 +55,15 @@ describe('DevicesController', () => {
       providers: [
         {
           provide: DevicesService,
-          useValue: {
-            register: jest.fn(),
-            authenticate: jest.fn(),
-            getDeviceList: jest.fn(),
-            getDeviceById: jest.fn(),
-            getDeviceByDeviceId: jest.fn(),
-          },
+          useValue: mockDevicesService,
         },
         {
           provide: CryptoService,
-          useValue: {
-            generateKeyPair: jest.fn(),
-            sign: jest.fn(),
-            verify: jest.fn(),
-          },
+          useValue: mockCryptoService,
+        },
+        {
+          provide: LoggerService,
+          useValue: mockLoggerService,
         },
       ],
     }).compile();
@@ -50,117 +71,362 @@ describe('DevicesController', () => {
     controller = module.get<DevicesController>(DevicesController);
     devicesService = module.get<DevicesService>(DevicesService);
     cryptoService = module.get<CryptoService>(CryptoService);
+    loggerService = module.get<LoggerService>(LoggerService);
   });
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   describe('register', () => {
-    it('should register a device successfully', async () => {
-      const registerDto = { deviceId: 'test', publicKey: 'testKey' };
-      const mockResult = { success: true, message: 'Device registered', data: mockDevice };
-      jest.spyOn(devicesService, 'register').mockResolvedValue(mockResult);
+    const mockRegisterDto: RegisterDeviceDto = {
+      deviceId: 'test-device-1',
+      deviceName: 'Test Device',
+      publicKey: 'MCowBQYDK2VwAyEASxPsG2JBYir64Cxo92ZDSBiwxrVYN2U75NpvY/v4agc=',
+      flowControlLevel: FlowControlLevel.MEDIUM,
+      ipAddr: '192.168.1.100',
+    };
 
-      const result = await controller.register(registerDto);
+    it('should successfully register a device', async () => {
+      const successResponse = {
+        success: true,
+        message: 'Device registered successfully',
+        data: { ...mockDevice },
+      };
 
-      expect(result).toEqual(createApiResponse(mockResult));
-      expect(devicesService.register).toHaveBeenCalledWith(registerDto);
+      mockDevicesService.register.mockResolvedValue(successResponse);
+
+      const result = await controller.register(mockRegisterDto);
+
+      expect(mockDevicesService.register).toHaveBeenCalledWith(mockRegisterDto);
+      expect(result).toEqual({
+        success: true,
+        message: successResponse.message,
+        data: successResponse.data,
+      });
+      expect(mockLoggerService.log).toHaveBeenCalled();
     });
 
     it('should throw HttpException when registration fails', async () => {
-      const registerDto = { deviceId: 'test', publicKey: 'testKey' };
-      const mockResult = { success: false, message: 'Registration failed', errorCode: ErrorCode.DEVICE_ALREADY_EXISTS };
-      jest.spyOn(devicesService, 'register').mockResolvedValue(mockResult);
+      const errorResponse = {
+        success: false,
+        message: 'Registration failed',
+        errorCode: ErrorCode.DEVICE_ALREADY_REGISTERED,
+      };
 
-      await expect(controller.register(registerDto)).rejects.toThrow(HttpException);
-      expect(devicesService.register).toHaveBeenCalledWith(registerDto);
+      mockDevicesService.register.mockResolvedValue(errorResponse);
+
+      await expect(controller.register(mockRegisterDto)).rejects.toThrow(HttpException);
+      expect(mockLoggerService.error).toHaveBeenCalled();
     });
   });
 
   describe('authenticate', () => {
-    it('should authenticate a device successfully', async () => {
-      const authDto = { deviceId: 'test', deviceType: 'type', signature: 'sig' };
-      const mockResult = { success: true, message: 'Device authenticated' };
-      jest.spyOn(devicesService, 'authenticate').mockResolvedValue(mockResult);
+    const mockAuthDto: AuthenticateDeviceDto = {
+      deviceId: 'test-device-1',
+      signature: 'test-signature',
+      deviceType: 'test-type',
+      ipAddr: '192.168.1.100',
+    };
 
-      const result = await controller.authenticate(authDto);
+    it('should successfully authenticate a device', async () => {
+      const successResponse = {
+        success: true,
+        message: 'Device authenticated successfully',
+      };
 
-      expect(result).toEqual(createApiResponse(mockResult));
-      expect(devicesService.authenticate).toHaveBeenCalledWith(authDto);
+      mockDevicesService.authenticate.mockResolvedValue(successResponse);
+
+      const result = await controller.authenticate(mockAuthDto);
+
+      expect(mockDevicesService.authenticate).toHaveBeenCalledWith(mockAuthDto);
+      expect(result).toEqual({
+        success: true,
+        message: successResponse.message,
+      });
+      expect(mockLoggerService.log).toHaveBeenCalled();
     });
 
     it('should throw HttpException when authentication fails', async () => {
-      const authDto = { deviceId: 'test', deviceType: 'type', signature: 'sig' };
-      const mockResult = {
+      const errorResponse = {
         success: false,
         message: 'Authentication failed',
         errorCode: ErrorCode.AUTHENTICATION_FAILED,
       };
-      jest.spyOn(devicesService, 'authenticate').mockResolvedValue(mockResult);
 
-      await expect(controller.authenticate(authDto)).rejects.toThrow(HttpException);
-      expect(devicesService.authenticate).toHaveBeenCalledWith(authDto);
+      mockDevicesService.authenticate.mockResolvedValue(errorResponse);
+
+      await expect(controller.authenticate(mockAuthDto)).rejects.toThrow(HttpException);
+      expect(mockLoggerService.warn).toHaveBeenCalled();
     });
   });
 
   describe('getDeviceList', () => {
-    it('should return a list of devices', async () => {
-      const mockResult = { success: true, message: 'Devices retrieved', data: [mockDevice] };
-      jest.spyOn(devicesService, 'getDeviceList').mockResolvedValue(mockResult);
+    const mockQuery: GetDeviceListDto = {
+      page: 1,
+      limit: 10,
+      sortBy: SortField.CREATED_AT,
+      sortOrder: SortOrder.DESC,
+    };
 
-      const result = await controller.getDeviceList();
+    it('should return list of devices successfully', async () => {
+      const mockDevices = [{ ...mockDevice }, { ...mockDevice, id: 2, deviceId: 'device-2' }];
 
-      expect(result).toEqual(createApiResponse(mockResult));
-      expect(devicesService.getDeviceList).toHaveBeenCalled();
+      const successResponse = {
+        success: true,
+        message: 'Devices retrieved successfully',
+        data: {
+          devices: mockDevices,
+          total: 2,
+        },
+      };
+
+      mockDevicesService.getDeviceList.mockResolvedValue(successResponse);
+
+      const result = await controller.getDeviceList(mockQuery);
+
+      expect(mockDevicesService.getDeviceList).toHaveBeenCalledWith(mockQuery);
+      expect(result).toEqual({
+        success: true,
+        message: successResponse.message,
+        data: successResponse.data,
+      });
     });
 
-    it('should throw HttpException when retrieval fails', async () => {
-      const mockResult = { success: false, message: 'Retrieval failed', errorCode: ErrorCode.INTERNAL_SERVER_ERROR };
-      jest.spyOn(devicesService, 'getDeviceList').mockResolvedValue(mockResult);
+    it('should handle different sort fields', async () => {
+      const differentSortQueries = [
+        { ...mockQuery, sortBy: SortField.ID },
+        { ...mockQuery, sortBy: SortField.DEVICE_ID },
+        { ...mockQuery, sortBy: SortField.LAST_AUTHENTICATED },
+      ];
 
-      await expect(controller.getDeviceList()).rejects.toThrow(HttpException);
-      expect(devicesService.getDeviceList).toHaveBeenCalled();
+      for (const query of differentSortQueries) {
+        const successResponse = {
+          success: true,
+          message: 'Devices retrieved successfully',
+          data: {
+            devices: [mockDevice],
+            total: 1,
+          },
+        };
+
+        mockDevicesService.getDeviceList.mockResolvedValue(successResponse);
+
+        const result = await controller.getDeviceList(query);
+        expect(result.success).toBe(true);
+        expect(mockDevicesService.getDeviceList).toHaveBeenCalledWith(query);
+      }
+    });
+
+    it('should throw HttpException when device list retrieval fails', async () => {
+      const errorResponse = {
+        success: false,
+        message: 'Failed to retrieve devices',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+
+      mockDevicesService.getDeviceList.mockResolvedValue(errorResponse);
+
+      await expect(controller.getDeviceList(mockQuery)).rejects.toThrow(HttpException);
+    });
+  });
+
+  describe('getDeviceStatistics', () => {
+    it('should return device statistics successfully', async () => {
+      const mockStats = {
+        totalDevices: 10,
+        registeredDevices: 8,
+        authenticatedDevices: 6,
+        recentlyAddedDevices: 2,
+        connectionStatusDistribution: {
+          connected: 5,
+          disconnected: 3,
+          unknown: 2,
+        },
+        deviceTypeDistribution: {
+          'type-a': 5,
+          'type-b': 5,
+        },
+        flowControlDistribution: {
+          high: 3,
+          medium: 4,
+          low: 3,
+        },
+      };
+
+      const successResponse = {
+        success: true,
+        message: 'Statistics retrieved successfully',
+        data: mockStats,
+      };
+
+      mockDevicesService.getDeviceStatistics.mockResolvedValue(successResponse);
+
+      const result = await controller.getDeviceStatistics();
+
+      expect(result).toEqual({
+        success: true,
+        message: successResponse.message,
+        data: mockStats,
+      });
+    });
+
+    it('should throw HttpException when statistics retrieval fails', async () => {
+      const errorResponse = {
+        success: false,
+        message: 'Failed to retrieve statistics',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+
+      mockDevicesService.getDeviceStatistics.mockResolvedValue(errorResponse);
+
+      await expect(controller.getDeviceStatistics()).rejects.toThrow(HttpException);
     });
   });
 
   describe('getDeviceById', () => {
-    it('should return a device by id', async () => {
-      const mockResult = { success: true, message: 'Device retrieved', data: mockDevice };
-      jest.spyOn(devicesService, 'getDeviceById').mockResolvedValue(mockResult);
+    const deviceId = '1';
 
-      const result = await controller.getDeviceById('1');
+    it('should return device successfully', async () => {
+      const successResponse = {
+        success: true,
+        message: 'Device found',
+        data: mockDevice,
+      };
 
-      expect(result).toEqual(createApiResponse(mockResult));
-      expect(devicesService.getDeviceById).toHaveBeenCalledWith(1);
+      mockDevicesService.getDeviceById.mockResolvedValue(successResponse);
+
+      const result = await controller.getDeviceById(deviceId);
+
+      expect(mockDevicesService.getDeviceById).toHaveBeenCalledWith(+deviceId);
+      expect(result).toEqual({
+        success: true,
+        message: successResponse.message,
+        data: successResponse.data,
+      });
     });
 
-    it('should throw HttpException when device is not found', async () => {
-      const mockResult = { success: false, message: 'Device not found', errorCode: ErrorCode.DEVICE_NOT_FOUND };
-      jest.spyOn(devicesService, 'getDeviceById').mockResolvedValue(mockResult);
+    it('should throw HttpException when device not found', async () => {
+      const errorResponse = {
+        success: false,
+        message: 'Device not found',
+        errorCode: ErrorCode.DEVICE_NOT_FOUND,
+      };
 
-      await expect(controller.getDeviceById('1')).rejects.toThrow(HttpException);
-      expect(devicesService.getDeviceById).toHaveBeenCalledWith(1);
+      mockDevicesService.getDeviceById.mockResolvedValue(errorResponse);
+
+      await expect(controller.getDeviceById(deviceId)).rejects.toThrow(HttpException);
+    });
+  });
+
+  describe('updateDevice', () => {
+    const deviceId = 'test-device-1';
+    const mockUpdateDto: UpdateDeviceDto = {
+      deviceName: 'Updated Device',
+      flowControlLevel: FlowControlLevel.HIGH,
+    };
+
+    it('should successfully update a device', async () => {
+      const successResponse = {
+        success: true,
+        message: 'Device updated successfully',
+        data: { ...mockDevice, ...mockUpdateDto },
+      };
+
+      mockDevicesService.updateDevice.mockResolvedValue(successResponse);
+
+      const result = await controller.updateDevice(deviceId, mockUpdateDto);
+
+      expect(mockDevicesService.updateDevice).toHaveBeenCalledWith(deviceId, mockUpdateDto);
+      expect(result).toEqual({
+        success: true,
+        message: successResponse.message,
+        data: successResponse.data,
+      });
+      expect(mockLoggerService.log).toHaveBeenCalled();
+    });
+
+    it('should throw HttpException when update fails', async () => {
+      const errorResponse = {
+        success: false,
+        message: 'Update failed',
+        errorCode: ErrorCode.INTERNAL_SERVER_ERROR,
+      };
+
+      mockDevicesService.updateDevice.mockResolvedValue(errorResponse);
+
+      await expect(controller.updateDevice(deviceId, mockUpdateDto)).rejects.toThrow(HttpException);
+      expect(mockLoggerService.error).toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteDeviceByDeviceId', () => {
+    const deviceId = 'test-device-1';
+
+    it('should successfully delete a device', async () => {
+      const successResponse = {
+        success: true,
+        message: 'Device deleted successfully',
+      };
+
+      mockDevicesService.deleteDeviceByDeviceId.mockResolvedValue(successResponse);
+
+      const result = await controller.deleteDeviceByDeviceId(deviceId);
+
+      expect(mockDevicesService.deleteDeviceByDeviceId).toHaveBeenCalledWith(deviceId);
+      expect(result).toEqual({
+        success: true,
+        message: successResponse.message,
+      });
+      expect(mockLoggerService.log).toHaveBeenCalled();
+    });
+
+    it('should throw HttpException when delete fails', async () => {
+      const errorResponse = {
+        success: false,
+        message: 'Device not found',
+        errorCode: ErrorCode.DEVICE_NOT_FOUND,
+      };
+
+      mockDevicesService.deleteDeviceByDeviceId.mockResolvedValue(errorResponse);
+
+      await expect(controller.deleteDeviceByDeviceId(deviceId)).rejects.toThrow(HttpException);
+      expect(mockLoggerService.error).toHaveBeenCalled();
     });
   });
 
   describe('getDeviceByDeviceId', () => {
-    it('should return a device by deviceId', async () => {
-      const mockResult = { success: true, message: 'Device retrieved', data: mockDevice };
-      jest.spyOn(devicesService, 'getDeviceByDeviceId').mockResolvedValue(mockResult);
+    const deviceId = 'test-device-1';
 
-      const result = await controller.getDeviceByDeviceId('test');
+    it('should return device successfully', async () => {
+      const successResponse = {
+        success: true,
+        message: 'Device found',
+        data: mockDevice,
+      };
 
-      expect(result).toEqual(createApiResponse(mockResult));
-      expect(devicesService.getDeviceByDeviceId).toHaveBeenCalledWith('test');
+      mockDevicesService.getDeviceByDeviceId.mockResolvedValue(successResponse);
+
+      const result = await controller.getDeviceByDeviceId(deviceId);
+
+      expect(mockDevicesService.getDeviceByDeviceId).toHaveBeenCalledWith(deviceId);
+      expect(result).toEqual({
+        success: true,
+        message: successResponse.message,
+        data: successResponse.data,
+      });
     });
 
-    it('should throw HttpException when device is not found', async () => {
-      const mockResult = { success: false, message: 'Device not found', errorCode: ErrorCode.DEVICE_NOT_FOUND };
-      jest.spyOn(devicesService, 'getDeviceByDeviceId').mockResolvedValue(mockResult);
+    it('should throw HttpException when device not found', async () => {
+      const errorResponse = {
+        success: false,
+        message: 'Device not found',
+        errorCode: ErrorCode.DEVICE_NOT_FOUND,
+      };
 
-      await expect(controller.getDeviceByDeviceId('test')).rejects.toThrow(HttpException);
-      expect(devicesService.getDeviceByDeviceId).toHaveBeenCalledWith('test');
+      mockDevicesService.getDeviceByDeviceId.mockResolvedValue(errorResponse);
+
+      await expect(controller.getDeviceByDeviceId(deviceId)).rejects.toThrow(HttpException);
     });
   });
 });

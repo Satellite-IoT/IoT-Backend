@@ -73,6 +73,17 @@
       "json",
       "ts"
     ],
+    "coveragePathIgnorePatterns": [
+      "node_modules",
+      ".module.ts",
+      ".dto.ts",
+      ".entity.ts",
+      ".enum.ts",
+      "main.ts",
+      "index.ts",
+      "src/common",
+      "src/events"
+    ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
