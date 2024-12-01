@@ -202,20 +202,17 @@ export class PqcGatewayService {
 
       if (startTimestamp) {
         finalStartDate = new Date(startTimestamp);
-        console.log('finalStartDate', finalStartDate);
       } else if (startDate) {
         finalStartDate = startDate;
       }
 
       if (endTimestamp) {
         finalEndDate = new Date(endTimestamp);
-        console.log('finalEndDate', finalEndDate);
       } else if (endDate) {
         finalEndDate = endDate;
       }
 
       if (finalStartDate) {
-        console.log('finalStartDate', finalStartDate);
         queryBuilder.andWhere('alarm.createdAt >= :startDate', { startDate: finalStartDate });
       }
 
