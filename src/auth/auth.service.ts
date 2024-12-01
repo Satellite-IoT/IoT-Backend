@@ -81,22 +81,25 @@ export class AuthService {
     }
   }
 
-  signout(res: Response) {
-    res.cookie('is_login', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // 僅在生產環境中啟用 secure 標誌
-      expires: new Date(1),
-      sameSite: 'strict',
-      // domain:'localhost'
-    });
-    res.cookie('iot_token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // 僅在生產環境中啟用 secure 標誌
-      expires: new Date(1),
-      sameSite: 'strict',
-      // domain:'localhost'
-    });
+  async signout(res: Response) {
+    try {
+      res.cookie('is_login', '', {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        expires: new Date(1),
+        sameSite: 'strict',
+      });
 
-    return { msg: 'success' };
+      res.cookie('iot_token', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        expires: new Date(1),
+        sameSite: 'strict',
+      });
+
+      return { msg: 'success' };
+    } catch (error) {
+      throw new BadRequestException('Failed to sign out');
+    }
   }
 }

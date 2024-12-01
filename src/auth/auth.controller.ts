@@ -39,16 +39,7 @@ export class AuthController {
 
   @Post('signout')
   @Header('Content-Type', 'application/json')
-  signout(@Res({ passthrough: true }) res: Response) {
-    return this.signout(res);
-  }
-
-  @Post('test')
-  @Header('Content-Type', 'application/json')
-  @UseInterceptors(PrivateDataInterceptor)
-  test(@Req() req: Request) {
-    console.log(req.privateData);
-
-    return { msg: 'success' };
+  async signout(@Res({ passthrough: true }) res: Response) {
+    return await this.authService.signout(res);
   }
 }
