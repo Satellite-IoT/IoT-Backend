@@ -73,7 +73,7 @@ export class DevicesController {
   @Post('authenticate')
   @ApiOperation({ summary: 'Authenticate a device' })
   @ApiBody({ type: AuthenticateDeviceDto })
-  @ApiResponse({ status: 200, description: 'The device has been successfully authenticated.' })
+  @ApiResponse({ status: 201, description: 'The device has been successfully authenticated.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
   async authenticate(@Body() authenticateDeviceDto: AuthenticateDeviceDto) {
     this.logger.log('Attempting to authenticate device', 'DevicesController - authenticate', authenticateDeviceDto);
