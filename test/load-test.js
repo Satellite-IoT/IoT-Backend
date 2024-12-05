@@ -4,6 +4,7 @@ import { SharedArray } from 'k6/data';
 import { randomString, randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
 
 const BASE_URL = 'http://localhost:3002/api/v1';
+const TEST_PREFIX = 'k6-test';
 
 const CONFIG = {
     PQC_GATEWAY: {
@@ -19,13 +20,13 @@ const CONFIG = {
 };
 
 const TEST_SCENARIOS = {
-    smoke: {
+    minimal: {
         executor: 'constant-vus',
         vus: 1,
         duration: '1m',
         gracefulStop: '10s'
     },
-    load: {
+    moderate: {
         executor: 'ramping-vus',
         startVUs: 0,
         stages: [
@@ -35,7 +36,7 @@ const TEST_SCENARIOS = {
         ],
         gracefulStop: '10s'
     },
-    stress: {
+    intensive: {
         executor: 'ramping-vus',
         startVUs: 0,
         stages: [
@@ -47,7 +48,7 @@ const TEST_SCENARIOS = {
         ],
         gracefulStop: '10s'
     },
-    soak: {
+    sustained: {
         executor: 'constant-vus',
         vus: 30,
         duration: '30m',
@@ -88,10 +89,11 @@ function generateDeviceInfo(deviceId) {
 function generateTestData() {
     const deviceIndex = `${__VU}-${__ITER}`;
     const device = testDevices[__ITER % testDevices.length];
+    const testDeviceId = `${TEST_PREFIX}-${deviceIndex}`;
 
     return {
         device: {
-            deviceId: `test-device-${deviceIndex}`,
+            deviceId: testDeviceId,
             publicKey: device.publicKey,
             deviceType: CONFIG.DEVICE_TYPES[randomIntBetween(0, CONFIG.DEVICE_TYPES.length - 1)],
             ipAddr: `192.168.${randomIntBetween(1, 255)}.${randomIntBetween(1, 255)}`,
@@ -104,34 +106,34 @@ function generateTestData() {
             deviceName: CONFIG.PQC_GATEWAY.deviceName,
             deviceType: CONFIG.PQC_GATEWAY.deviceType,
             networkInfo: generateNetworkInfo(),
-            deviceInfo: [generateDeviceInfo(`test-device-${deviceIndex}`)]
+            deviceInfo: [generateDeviceInfo(testDeviceId)]
         }
     };
 }
 
 const THRESHOLDS = {
-    smoke: {
+    minimal: {
         http_req_duration: ['p(95)<500', 'p(99)<1000'],
         http_req_failed: ['rate<0.01'],
         'http_req_duration{type:devices}': ['p(95)<400'],
         'http_req_duration{type:pqc}': ['p(95)<600'],
         'http_reqs': ['rate>1']
     },
-    load: {
+    moderate: {
         http_req_duration: ['p(95)<1000', 'p(99)<1500'],
         http_req_failed: ['rate<0.01'],
         'http_req_duration{type:devices}': ['p(95)<800'],
         'http_req_duration{type:pqc}': ['p(95)<1200'],
         'http_reqs': ['rate>50']
     },
-    stress: {
+    intensive: {
         http_req_duration: ['p(95)<2000', 'p(99)<3000'],
         http_req_failed: ['rate<0.02'],
         'http_req_duration{type:devices}': ['p(95)<1500'],
         'http_req_duration{type:pqc}': ['p(95)<2000'],
         'http_reqs': ['rate>100']
     },
-    soak: {
+    sustained: {
         http_req_duration: ['p(95)<1200', 'p(99)<2000'],
         http_req_failed: ['rate<0.01'],
         'http_req_duration{type:devices}': ['p(95)<1000'],
@@ -142,9 +144,9 @@ const THRESHOLDS = {
 
 export const options = {
     scenarios: {
-        [__ENV.TESTCASE]: TEST_SCENARIOS[__ENV.TYPE || 'smoke']
+        [__ENV.TESTCASE]: TEST_SCENARIOS[__ENV.TYPE || 'minimal']
     },
-    thresholds: THRESHOLDS[__ENV.TYPE || 'smoke']
+    thresholds: THRESHOLDS[__ENV.TYPE || 'minimal']
 };
 
 function deviceManagementFlow(testData) {
@@ -164,8 +166,8 @@ function deviceManagementFlow(testData) {
             'registration time OK': (r) => r.timings.duration < 500
         });
 
-        // Authenticate
         if (registerRes.status === 201) {
+            // Authenticate
             const authRes = http.post(
                 `${BASE_URL}/devices/authenticate`,
                 JSON.stringify({
@@ -309,27 +311,71 @@ function queryOperations() {
     });
 }
 
+function cleanupTestDevices() {
+    group('Cleanup Test Devices', () => {
+        const listRes = http.get(
+            `${BASE_URL}/devices/list?deviceId_like=${TEST_PREFIX}&page=1&limit=999999999999999999`,
+            { tags: { type: 'cleanup' } }
+        );
+
+        if (listRes.status === 200) {
+            const response = JSON.parse(listRes.body);
+            const devices = response.data.devices;
+
+            devices
+                .filter(device => device.deviceId.startsWith(TEST_PREFIX))
+                .forEach(device => {
+                    const deleteRes = http.del(
+                        `${BASE_URL}/devices/${device.deviceId}`,
+                        null,
+                        {
+                            headers: { 'Content-Type': 'application/json' },
+                            tags: { type: 'cleanup' }
+                        }
+                    );
+
+                    check(deleteRes, {
+                        'device cleanup successful': (r) => r.status === 200 || r.status === 204
+                    });
+                });
+
+            console.log('Cleanup completed');
+        } else {
+            console.error('Failed to fetch test devices for cleanup');
+        }
+    });
+}
+
+export function teardown() {
+    console.log('Starting cleanup process...');
+    cleanupTestDevices();
+}
+
 export default function () {
     const testData = generateTestData();
 
-    switch (__ENV.TESTCASE) {
-        case 'device':
-            deviceManagementFlow(testData);
-            break;
-        case 'pqc':
-            pqcGatewayFlow(testData);
-            break;
-        case 'query':
-            queryOperations();
-            break;
-        case 'all':
-            deviceManagementFlow(testData);
-            pqcGatewayFlow(testData);
-            queryOperations();
-            break;
-        default:
-            console.log('No valid test case specified');
-    }
+    try {
+        switch (__ENV.TESTCASE) {
+            case 'device':
+                deviceManagementFlow(testData);
+                break;
+            case 'pqc':
+                pqcGatewayFlow(testData);
+                break;
+            case 'query':
+                queryOperations();
+                break;
+            case 'all':
+                deviceManagementFlow(testData);
+                pqcGatewayFlow(testData);
+                queryOperations();
+                break;
+            default:
+                console.log('No valid test case specified');
+        }
 
-    sleep(randomIntBetween(1, 2));
+        sleep(randomIntBetween(1, 2));
+    } catch (error) {
+        console.error('Error during test execution:', error);
+    }
 }
