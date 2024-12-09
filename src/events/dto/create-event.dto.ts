@@ -37,7 +37,7 @@ export class CreateEventDto {
 
   @ApiPropertyOptional({
     description: 'Detailed information about the event',
-    example: 'Device 1 successfully connected on 192.168.1.100',
+    example: 'Device 1 successfully connected on 192.0.2.1',
   })
   @IsString()
   @IsOptional()
@@ -48,7 +48,7 @@ export class CreateEventDto {
     example: {
       deviceId: 'device-1',
       deviceName: 'Device 1',
-      ipAddress: '192.168.1.100',
+      ipAddress: '192.0.2.1',
     },
   })
   @IsObject()

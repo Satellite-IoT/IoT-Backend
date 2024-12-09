@@ -5,7 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { AccountRole } from 'src/common/enums';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 
 @Injectable()
 export class AuthService {

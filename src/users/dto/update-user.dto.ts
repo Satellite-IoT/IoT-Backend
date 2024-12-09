@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsEnum, IsIP } from 'class-validator';
+import { IsOptional, IsString, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { FlowControlLevel } from 'src/common/enums';
 

@@ -21,7 +21,7 @@ class NetworkInfoItemDto {
 
   @ApiProperty({
     description: 'IP address of the interface',
-    example: '192.168.1.99',
+    example: '192.0.2.1',
   })
   @IsString()
   @IsNotEmpty()
@@ -96,7 +96,7 @@ class DeviceInfoDto {
 
   @ApiProperty({
     description: 'IP address of the connected device',
-    example: '192.168.10.142',
+    example: '192.0.2.1',
   })
   @IsString()
   @IsNotEmpty()

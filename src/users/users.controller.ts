@@ -6,7 +6,6 @@ import {
   HttpException,
   Param,
   Patch,
-  Post,
   Query,
   UseInterceptors,
   UsePipes,

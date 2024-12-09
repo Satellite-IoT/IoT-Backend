@@ -4,7 +4,6 @@ import {
   Get,
   Body,
   Param,
-  HttpStatus,
   HttpException,
   UsePipes,
   ValidationPipe,
@@ -15,7 +14,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
-import { ErrorCode, EventLevel, EventTag, EventType, SortField, SortOrder } from 'src/common/enums';
 import { createApiResponse } from '../common/utils/response.util';
 import { AuthenticateDeviceDto, GetDeviceListDto, RegisterDeviceDto, UpdateDeviceDto } from './dto';
 import { DevicesService } from './devices.service';

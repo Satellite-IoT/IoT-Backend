@@ -1,24 +1,8 @@
-import {
-  Controller,
-  Req,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  UseGuards,
-  Res,
-  UseInterceptors,
-  Header,
-} from '@nestjs/common';
-
-import { Request, Response } from 'express';
+import { Controller, Post, Body, Res, Header } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { AuthSignInDto, AuthSignUpDto } from './dto/index';
 import { ApiTags } from '@nestjs/swagger';
-import { PrivateDataInterceptor } from 'src/common/interceptors/private-data.interceptor';
-// import { UpdateAuthDto } from './dto/signup-auth.dto';
 
 @ApiTags('auth')
 @Controller('auth')

@@ -67,8 +67,6 @@ export class PqcGatewayService {
         ['deviceId'],
       );
 
-      // await this.connectionRepository.delete({ gatewayDeviceId: statusData.deviceId });
-
       if (statusData.deviceInfo && statusData.deviceInfo.length > 0) {
         const connections = statusData.deviceInfo.map((info) => ({
           gatewayDeviceId: statusData.deviceId,

@@ -28,7 +28,7 @@ export class AuthenticateDeviceDto {
 
   @ApiProperty({
     description: 'The IP address of the device',
-    example: '192.168.1.100',
+    example: '192.0.2.1',
     required: false,
   })
   @IsOptional()

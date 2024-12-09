@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, Length, Matches } from 'class-validator';
+import { IsEmail, Length } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AuthSignInDto {

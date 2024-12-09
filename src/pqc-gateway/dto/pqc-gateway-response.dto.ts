@@ -9,7 +9,7 @@ import { parseISO } from 'date-fns';
 export class DeviceCtrlDto {
   @ApiProperty({
     description: 'IP address of the device',
-    example: '192.168.10.142',
+    example: '192.0.2.1',
   })
   @IsString()
   ipAddr: string;
