@@ -1,10 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { DevicesController } from './devices/devices.controller';
-import { DevicesService } from './devices/devices.service';
 import { DevicesModule } from './devices/devices.module';
 import { EventsModule } from './events/events.module';
 import { PqcGatewayModule } from './pqc-gateway/pqc-gateway.module';
