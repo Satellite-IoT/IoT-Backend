@@ -60,7 +60,11 @@ export class DevicesService {
 
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
     const { publicKey, deviceId, ...optionalFields } = registerDeviceDto;
-    let device = await this.deviceRepository.findOne({ where: { deviceId } });
+
+    const device = await this.deviceRepository.findOne({
+      where: { deviceId },
+      select: ['id', 'isRegistered'],
+    });
 
     if (device?.isRegistered) {
       return {
@@ -70,28 +74,24 @@ export class DevicesService {
       };
     }
 
-    const allowedFields = ['ipAddr', 'deviceName', 'flowControlLevel'];
+    const allowedFields = new Set(['ipAddr', 'deviceName', 'flowControlLevel']); // 使用 Set 提升查詢效能
 
     const updatedFields = {
       publicKey,
       deviceId,
       status: 'disconnected',
       isRegistered: true,
-      ...Object.entries(optionalFields).reduce(
-        (acc, [key, value]) => (allowedFields.includes(key) && value !== undefined ? { ...acc, [key]: value } : acc),
-        {},
-      ),
     };
 
-    if (device) {
-      // Update existing device
-      Object.assign(device, updatedFields);
-    } else {
-      // Create new device
-      device = this.deviceRepository.create(updatedFields);
+    for (const key in optionalFields) {
+      if (allowedFields.has(key) && optionalFields[key] !== undefined) {
+        updatedFields[key] = optionalFields[key];
+      }
     }
 
-    const savedDevice = await this.deviceRepository.save(device);
+    const deviceToSave = device ? Object.assign(device, updatedFields) : this.deviceRepository.create(updatedFields);
+
+    const savedDevice = await this.deviceRepository.save(deviceToSave);
     return {
       success: true,
       message: 'Device registered successfully',

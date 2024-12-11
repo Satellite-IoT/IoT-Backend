@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Query,
+  UseGuards,
   UseInterceptors,
   UsePipes,
   ValidationPipe,
@@ -17,8 +18,10 @@ import { createApiResponse } from 'src/common/utils/response.util';
 import { LoggerService } from 'src/logger/logger.service';
 import { UsersService } from './users.service';
 import { GetUserListDto, UpdateUserDto } from './dto';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 
 @ApiTags('users')
+@UseGuards(AuthGuard)
 @Controller('users')
 @UsePipes(new ValidationPipe({ transform: true }))
 @UseInterceptors(ClassSerializerInterceptor)

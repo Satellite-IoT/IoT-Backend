@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Res, Header } from '@nestjs/common';
+import { Controller, Post, Body, Res, Header, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { AuthSignInDto, AuthSignUpDto } from './dto/index';
 import { ApiTags } from '@nestjs/swagger';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -15,6 +16,7 @@ export class AuthController {
     return await this.authService.signin(signinDto, res);
   }
 
+  @UseGuards(AuthGuard)
   @Post('signup')
   @Header('Content-Type', 'application/json')
   async signup(@Body() signupDto: AuthSignUpDto) {

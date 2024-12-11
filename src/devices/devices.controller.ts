@@ -12,6 +12,7 @@ import {
   Query,
   ClassSerializerInterceptor,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { createApiResponse } from '../common/utils/response.util';
@@ -20,8 +21,10 @@ import { DevicesService } from './devices.service';
 import { CryptoService } from './crypto.service';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
 import { LoggerService } from 'src/logger/logger.service';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 
 @ApiTags('devices')
+@UseGuards(AuthGuard)
 @Controller('devices')
 @UsePipes(new ValidationPipe({ transform: true }))
 @UseInterceptors(ClassSerializerInterceptor)

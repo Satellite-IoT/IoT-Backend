@@ -7,6 +7,7 @@ import {
   Query,
   ClassSerializerInterceptor,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiQuery } from '@nestjs/swagger';
 import { mapErrorCodeToHttpStatus } from 'src/common/utils/error-handler.util';
@@ -24,6 +25,7 @@ import {
 } from './dto';
 import { AlarmStatus, AlarmType } from 'src/common/enums';
 import { LoggerService } from 'src/logger/logger.service';
+import { AuthGuard } from 'src/common/guards/auth.guard';
 
 @ApiTags('pqc-gateway')
 @Controller('pqcGateway')
@@ -145,6 +147,7 @@ export class PqcGatewayController {
     }
   }
 
+  @UseGuards(AuthGuard)
   @Get('alarms')
   @ApiOperation({ summary: 'Get PQC Gateway alarms with pagination, filtering, and sorting' })
   @ApiQuery({ name: 'page', required: false, type: Number })
