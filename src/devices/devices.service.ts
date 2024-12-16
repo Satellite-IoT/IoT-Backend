@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Device } from 'src/entities';
-import { ErrorCode, SortField } from 'src/common/enums';
+import { Alarm, Device } from 'src/entities';
+import { AlarmType, ErrorCode, SortField } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { CryptoService } from './crypto.service';
 import {
@@ -21,6 +21,8 @@ export class DevicesService {
   constructor(
     @InjectRepository(Device)
     private deviceRepository: Repository<Device>,
+    @InjectRepository(Alarm)
+    private alarmRepository: Repository<Alarm>,
     @InjectRepository(PqcGatewayNetwork)
     private pqcNetworkRepository: Repository<PqcGatewayNetwork>,
     @InjectRepository(PqcGatewayConnection)
@@ -29,6 +31,16 @@ export class DevicesService {
   ) {}
 
   private static readonly DEFAULT_TIMEOUT_MS = 3 * 60 * 1000; // 3 minute in milliseconds
+
+  private async createSystemAlarm(deviceId: string, alarmType: AlarmType, description: string): Promise<void> {
+    const alarm = this.alarmRepository.create({
+      alarmType,
+      alarmDescription: description,
+      deviceId,
+      deviceName: deviceId,
+    });
+    await this.alarmRepository.save(alarm);
+  }
 
   private getDeviceConnectionStatus(device: Device, currentTime: Date): 'connected' | 'disconnected' | 'unknown' {
     if (!device.isRegistered) {
@@ -92,6 +104,9 @@ export class DevicesService {
     const deviceToSave = device ? Object.assign(device, updatedFields) : this.deviceRepository.create(updatedFields);
 
     const savedDevice = await this.deviceRepository.save(deviceToSave);
+
+    await this.createSystemAlarm(deviceId, AlarmType.INFO, `New device registered - [${deviceId}]`);
+
     return {
       success: true,
       message: 'Device registered successfully',
@@ -115,6 +130,12 @@ export class DevicesService {
     const isValid = this.cryptoService.verify(device.publicKey, signature, message);
 
     if (isValid) {
+      const wasAuthenticated: boolean = device.isAuthenticated;
+      const currentTime = new Date();
+      const timeDiff = device.lastAuthenticated
+        ? currentTime.getTime() - device.lastAuthenticated.getTime()
+        : Number.POSITIVE_INFINITY;
+
       Object.assign(device, {
         deviceType,
         isAuthenticated: true,
@@ -123,6 +144,11 @@ export class DevicesService {
       });
 
       await this.deviceRepository.save(device);
+
+      if (!wasAuthenticated || timeDiff > 5 * 60 * 1000) {
+        await this.createSystemAlarm(deviceId, AlarmType.INFO, `Device authenticated: ${deviceId}`);
+      }
+
       return { success: true, message: 'Device authenticated successfully' };
     } else {
       return {
