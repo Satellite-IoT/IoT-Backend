@@ -146,26 +146,25 @@ const baseRequestConfig = {
 };
 
 function generateNetworkInfo() {
-    const networkType = CONFIG.NETWORK_TYPES[randomIntBetween(0, CONFIG.NETWORK_TYPES.length - 1)];
     return {
-        networkRoute: networkType,
-        uploadTraffic: `${randomIntBetween(1, 100)} kbit/s`,
-        downloadTraffic: `${randomIntBetween(1, 1000)} kbit/s`,
+        networkRoute: 'ETHERNET',
+        uploadTraffic: '50 kbit/s',
+        downloadTraffic: '500 kbit/s',
         networkInfo: [{
-            Interface: `WAN${randomIntBetween(1, 4)}`,
-            host: networkType,
-            ipAddr: `192.168.${randomIntBetween(1, 255)}.${randomIntBetween(1, 255)}`
+            Interface: 'WAN1',
+            host: 'ETHERNET',
+            ipAddr: '192.168.1.1'
         }]
     };
 }
 
 function generateDeviceInfo(deviceId) {
     return {
-        deviceType: CONFIG.DEVICE_TYPES[randomIntBetween(0, CONFIG.DEVICE_TYPES.length - 1)],
+        deviceType: "laptop",
         deviceId: deviceId,
-        loginUser: `user${randomIntBetween(1, 1000)}`,
-        host: `host-${randomString(8)}`,
-        ipAddr: `192.168.${randomIntBetween(1, 255)}.${randomIntBetween(1, 255)}`
+        loginUser: `user1`,
+        host: `host-test`,
+        ipAddr: `192.168.100.200`
     };
 }
 
@@ -178,10 +177,10 @@ function generateTestData() {
         device: {
             deviceId: testDeviceId,
             publicKey: device.publicKey,
-            deviceType: CONFIG.DEVICE_TYPES[randomIntBetween(0, CONFIG.DEVICE_TYPES.length - 1)],
-            ipAddr: `192.168.${randomIntBetween(1, 255)}.${randomIntBetween(1, 255)}`,
+            deviceType: 'laptop',
+            ipAddr: `192.168.100.200`,
             deviceName: `Test Device ${deviceIndex}`,
-            flowControlLevel: CONFIG.FLOW_CONTROL_LEVELS[randomIntBetween(0, CONFIG.FLOW_CONTROL_LEVELS.length - 1)]
+            flowControlLevel: 'medium'
         },
         pqcStatus: {
             signature: CONFIG.PQC_GATEWAY.signature,
