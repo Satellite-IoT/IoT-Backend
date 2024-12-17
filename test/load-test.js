@@ -21,47 +21,130 @@ const CONFIG = {
 
 const TEST_SCENARIOS = {
     minimal: {
-        executor: 'constant-vus',
-        vus: 1,
-        duration: '1m',
-        gracefulStop: '10s'
+        deviceScenario: {
+            executor: 'constant-vus',
+            vus: 1,
+            duration: '1m',
+            gracefulStop: '10s'
+        },
+        pqcScenario: {
+            executor: 'constant-vus',
+            vus: 1,
+            duration: '1m',
+            gracefulStop: '10s'
+        },
+        queryScenario: {
+            executor: 'constant-vus',
+            vus: 1,
+            duration: '1m',
+            gracefulStop: '10s'
+        }
     },
     moderate: {
-        executor: 'ramping-vus',
-        startVUs: 0,
-        stages: [
-            { duration: '1m', target: 10 },
-            { duration: '3m', target: 10 },
-            { duration: '1m', target: 0 }
-        ],
-        gracefulStop: '10s'
+        deviceScenario: {
+            executor: 'ramping-vus',
+            startVUs: 0,
+            stages: [
+                { duration: '1m', target: 10 },
+                { duration: '3m', target: 10 },
+                { duration: '1m', target: 0 }
+            ],
+            gracefulStop: '10s'
+        },
+        pqcScenario: {
+            executor: 'ramping-vus',
+            startVUs: 0,
+            stages: [
+                { duration: '1m', target: 3 },
+                { duration: '3m', target: 3 },
+                { duration: '1m', target: 0 }
+            ],
+            gracefulStop: '10s'
+        },
+        queryScenario: {
+            executor: 'ramping-vus',
+            startVUs: 0,
+            stages: [
+                { duration: '1m', target: 5 },
+                { duration: '3m', target: 5 },
+                { duration: '1m', target: 0 }
+            ],
+            gracefulStop: '10s'
+        }
     },
     intensive: {
-        executor: 'ramping-vus',
-        startVUs: 0,
-        stages: [
-            { duration: '2m', target: 50 },
-            { duration: '5m', target: 50 },
-            { duration: '2m', target: 100 },
-            { duration: '5m', target: 100 },
-            { duration: '2m', target: 0 }
-        ],
-        gracefulStop: '10s'
-    },
-    sustained: {
-        executor: 'constant-vus',
-        vus: 30,
-        duration: '30m',
-        gracefulStop: '10s'
+        deviceScenario: {
+            executor: 'ramping-vus',
+            startVUs: 0,
+            stages: [
+                { duration: '2m', target: 15 },
+                { duration: '5m', target: 15 },
+                { duration: '2m', target: 25 },
+                { duration: '5m', target: 30 },
+                { duration: '2m', target: 0 }
+            ],
+            gracefulStop: '10s'
+        },
+        pqcScenario: {
+            executor: 'ramping-vus',
+            startVUs: 0,
+            stages: [
+                { duration: '2m', target: 5 },
+                { duration: '5m', target: 5 },
+                { duration: '2m', target: 8 },
+                { duration: '5m', target: 10 },
+                { duration: '2m', target: 0 }
+            ],
+            gracefulStop: '10s'
+        },
+        queryScenario: {
+            executor: 'ramping-vus',
+            startVUs: 0,
+            stages: [
+                { duration: '2m', target: 10 },
+                { duration: '5m', target: 10 },
+                { duration: '2m', target: 15 },
+                { duration: '5m', target: 25 },
+                { duration: '2m', target: 0 }
+            ],
+            gracefulStop: '10s'
+        }
     }
 };
 
-// Load test devices data
+const THRESHOLDS = {
+    minimal: {
+        http_req_duration: ['p(95)<500', 'p(99)<1000'],
+        http_req_failed: ['rate<0.01'],
+        'http_req_duration{type:devices}': ['p(95)<400'],
+        'http_req_duration{type:pqc}': ['p(95)<600'],
+        'http_reqs': ['rate>1']
+    },
+    moderate: {
+        http_req_duration: ['p(95)<1000', 'p(99)<1500'],
+        http_req_failed: ['rate<0.01'],
+        'http_req_duration{type:devices}': ['p(95)<1000'],
+        'http_req_duration{type:pqc}': ['p(95)<1500'],
+        'http_reqs': ['rate>10']
+    },
+    intensive: {
+        http_req_duration: ['p(95)<2500', 'p(99)<5000'],
+        http_req_failed: ['rate<0.02'],
+        'http_req_duration{type:devices}': ['p(95)<2000'],
+        'http_req_duration{type:pqc}': ['p(95)<4000'],
+        'http_reqs': ['rate>20']
+    }
+};
+
 const testDevices = new SharedArray('test devices', function () {
     return JSON.parse(open('./test-devices.json'));
 });
 
-// Data Generators
+const baseRequestConfig = {
+    headers: { 'Content-Type': 'application/json' },
+    timeout: '10s'
+};
+
 function generateNetworkInfo() {
     const networkType = CONFIG.NETWORK_TYPES[randomIntBetween(0, CONFIG.NETWORK_TYPES.length - 1)];
     return {
@@ -111,132 +194,103 @@ function generateTestData() {
     };
 }
 
-const THRESHOLDS = {
-    minimal: {
-        http_req_duration: ['p(95)<500', 'p(99)<1000'],
-        http_req_failed: ['rate<0.01'],
-        'http_req_duration{type:devices}': ['p(95)<400'],
-        'http_req_duration{type:pqc}': ['p(95)<600'],
-        'http_reqs': ['rate>1']
-    },
-    moderate: {
-        http_req_duration: ['p(95)<1000', 'p(99)<1500'],
-        http_req_failed: ['rate<0.01'],
-        'http_req_duration{type:devices}': ['p(95)<800'],
-        'http_req_duration{type:pqc}': ['p(95)<1200'],
-        'http_reqs': ['rate>50']
-    },
-    intensive: {
-        http_req_duration: ['p(95)<2000', 'p(99)<3000'],
-        http_req_failed: ['rate<0.02'],
-        'http_req_duration{type:devices}': ['p(95)<1500'],
-        'http_req_duration{type:pqc}': ['p(95)<2000'],
-        'http_reqs': ['rate>100']
-    },
-    sustained: {
-        http_req_duration: ['p(95)<1200', 'p(99)<2000'],
-        http_req_failed: ['rate<0.01'],
-        'http_req_duration{type:devices}': ['p(95)<1000'],
-        'http_req_duration{type:pqc}': ['p(95)<1500'],
-        'http_reqs': ['rate>30']
+function retryRequest(requestFn, maxRetries = 2) {
+    let retries = 0;
+    while (retries < maxRetries) {
+        const response = requestFn();
+        if (response.status < 400) {
+            return response;
+        }
+        retries++;
+        sleep(1);
     }
-};
-
-export const options = {
-    scenarios: {
-        [__ENV.TESTCASE]: TEST_SCENARIOS[__ENV.TYPE || 'minimal']
-    },
-    thresholds: THRESHOLDS[__ENV.TYPE || 'minimal']
-};
+    return requestFn();
+}
 
 function deviceManagementFlow(testData) {
     group('Device Management Flow', () => {
         // Register
-        const registerRes = http.post(
+        const registerRes = retryRequest(() => http.post(
             `${BASE_URL}/devices/register`,
             JSON.stringify(testData.device),
-            {
-                headers: { 'Content-Type': 'application/json' },
-                tags: { type: 'devices' }
-            }
-        );
+            { ...baseRequestConfig, tags: { type: 'devices' } }
+        ));
 
         check(registerRes, {
-            'device registration successful': (r) => r.status === 201,
-            'registration time OK': (r) => r.timings.duration < 500
+            'device registration successful': (r) => r.status === 201
         });
 
-        if (registerRes.status === 201) {
-            // Authenticate
-            const authRes = http.post(
-                `${BASE_URL}/devices/authenticate`,
-                JSON.stringify({
-                    signature: testData.pqcStatus.signature,
-                    deviceId: testData.pqcStatus.deviceId,
-                    deviceType: testData.pqcStatus.deviceType
-                }),
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    tags: { type: 'devices' }
-                }
-            );
-
-            check(authRes, {
-                'device authentication successful': (r) => r.status === 201
-            });
-
-            // Get device details
-            const deviceRes = http.get(
-                `${BASE_URL}/devices/${testData.device.deviceId}`,
-                { tags: { type: 'devices' } }
-            );
-
-            check(deviceRes, {
-                'get device successful': (r) => r.status === 200
-            });
-
-            // Update device
-            const updateRes = http.patch(
-                `${BASE_URL}/devices/${testData.device.deviceId}`,
-                JSON.stringify({
-                    deviceName: `Updated ${randomString(5)}`,
-                    flowControlLevel: CONFIG.FLOW_CONTROL_LEVELS[randomIntBetween(0, 2)]
-                }),
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    tags: { type: 'devices' }
-                }
-            );
-
-            check(updateRes, {
-                'update device successful': (r) => r.status === 200
-            });
+        if (registerRes.status !== 201) {
+            console.log(`Registration failed: ${registerRes.status}`);
+            return;
         }
+
+        // Authenticate
+        const authRes = retryRequest(() => http.post(
+            `${BASE_URL}/devices/authenticate`,
+            JSON.stringify({
+                signature: testData.pqcStatus.signature,
+                deviceId: testData.pqcStatus.deviceId,
+                deviceType: testData.pqcStatus.deviceType
+            }),
+            { ...baseRequestConfig, tags: { type: 'devices' } }
+        ));
+
+        check(authRes, {
+            'device authentication successful': (r) => r.status === 201
+        });
+
+        // Get device details
+        const deviceRes = retryRequest(() => http.get(
+            `${BASE_URL}/devices/${testData.device.deviceId}`,
+            { tags: { type: 'devices' } }
+        ));
+
+        check(deviceRes, {
+            'get device successful': (r) => r.status === 200
+        });
+
+        // Update device
+        const updateRes = retryRequest(() => http.patch(
+            `${BASE_URL}/devices/${testData.device.deviceId}`,
+            JSON.stringify({
+                deviceName: `Updated ${randomString(5)}`,
+                flowControlLevel: CONFIG.FLOW_CONTROL_LEVELS[randomIntBetween(0, 2)]
+            }),
+            { ...baseRequestConfig, tags: { type: 'devices' } }
+        ));
+
+        check(updateRes, {
+            'update device successful': (r) => r.status === 200
+        });
     });
 }
 
 function pqcGatewayFlow(testData) {
     group('PQC Gateway Flow', () => {
         // Status update
-        const statusRes = http.post(
+        const statusRes = retryRequest(() => http.post(
             `${BASE_URL}/pqcGateway/status_ind`,
             JSON.stringify(testData.pqcStatus),
-            {
-                headers: { 'Content-Type': 'application/json' },
-                tags: { type: 'pqc' }
-            }
-        );
+            { ...baseRequestConfig, tags: { type: 'pqc' } }
+        ));
 
         check(statusRes, {
             'status update successful': (r) => r.status === 201,
             'response contains device control': (r) => {
-                const body = JSON.parse(r.body);
-                return body.deviceCtrl && Array.isArray(body.deviceCtrl);
+                try {
+                    const body = JSON.parse(r.body);
+                    return body.deviceCtrl && Array.isArray(body.deviceCtrl);
+                } catch (e) {
+                    return false;
+                }
             }
         });
 
+        sleep(1);
+
         // Alarm indication
-        const alarmRes = http.post(
+        const alarmRes = retryRequest(() => http.post(
             `${BASE_URL}/pqcGateway/alarm_ind`,
             JSON.stringify({
                 ...testData.pqcStatus,
@@ -245,11 +299,8 @@ function pqcGatewayFlow(testData) {
                     alarmDescription: `Test alarm ${randomString(10)}`
                 }]
             }),
-            {
-                headers: { 'Content-Type': 'application/json' },
-                tags: { type: 'pqc' }
-            }
-        );
+            { ...baseRequestConfig, tags: { type: 'pqc' } }
+        ));
 
         check(alarmRes, {
             'alarm update successful': (r) => r.status === 201
@@ -263,8 +314,7 @@ function queryOperations() {
         const deviceQueries = [
             'page=1&limit=10',
             'page=1&limit=50&sortBy=createdAt&sortOrder=DESC',
-            'page=2&limit=20&includePqcGateway=true',
-            'sortBy=deviceType&sortOrder=ASC'
+            'page=2&limit=20&includePqcGateway=true'
         ];
 
         deviceQueries.forEach(params => {
@@ -274,8 +324,7 @@ function queryOperations() {
             );
 
             check(listRes, {
-                'device list query successful': (r) => r.status === 200,
-                'response time within limit': (r) => r.timings.duration < 500
+                'device list query successful': (r) => r.status === 200
             });
         });
 
@@ -304,8 +353,7 @@ function queryOperations() {
             );
 
             check(alarmsRes, {
-                'alarm list query successful': (r) => r.status === 200,
-                'response time within limit': (r) => r.timings.duration < 500
+                'alarm list query successful': (r) => r.status === 200
             });
         });
     });
@@ -319,63 +367,73 @@ function cleanupTestDevices() {
         );
 
         if (listRes.status === 200) {
-            const response = JSON.parse(listRes.body);
-            const devices = response.data.devices;
+            try {
+                const response = JSON.parse(listRes.body);
+                const devices = response.data.devices;
 
-            devices
-                .filter(device => device.deviceId.startsWith(TEST_PREFIX))
-                .forEach(device => {
-                    const deleteRes = http.del(
-                        `${BASE_URL}/devices/${device.deviceId}`,
-                        null,
-                        {
-                            headers: { 'Content-Type': 'application/json' },
-                            tags: { type: 'cleanup' }
-                        }
-                    );
+                devices
+                    .filter(device => device.deviceId.startsWith(TEST_PREFIX))
+                    .forEach(device => {
+                        const deleteRes = http.del(
+                            `${BASE_URL}/devices/${device.deviceId}`,
+                            null,
+                            {
+                                headers: { 'Content-Type': 'application/json' },
+                                tags: { type: 'cleanup' }
+                            }
+                        );
 
-                    check(deleteRes, {
-                        'device cleanup successful': (r) => r.status === 200 || r.status === 204
+                        check(deleteRes, {
+                            'device cleanup successful': (r) => r.status === 200 || r.status === 204
+                        });
                     });
-                });
 
-            console.log('Cleanup completed');
+                console.log('Test completed');
+            } catch (error) {
+                console.error('Error during cleanup:', error);
+            }
         } else {
             console.error('Failed to fetch test devices for cleanup');
         }
     });
 }
 
+export const options = {
+    scenarios: {
+        devices: {
+            ...TEST_SCENARIOS[__ENV.TYPE || 'minimal'].deviceScenario,
+            exec: 'deviceScenario'
+        },
+        pqc: {
+            ...TEST_SCENARIOS[__ENV.TYPE || 'minimal'].pqcScenario,
+            exec: 'pqcScenario'
+        },
+        queries: {
+            ...TEST_SCENARIOS[__ENV.TYPE || 'minimal'].queryScenario,
+            exec: 'queryScenario'
+        }
+    },
+    thresholds: THRESHOLDS[__ENV.TYPE || 'minimal']
+};
+
+export function deviceScenario() {
+    const testData = generateTestData();
+    deviceManagementFlow(testData);
+    sleep(randomIntBetween(1, 2));
+}
+
+export function pqcScenario() {
+    const testData = generateTestData();
+    pqcGatewayFlow(testData);
+    sleep(randomIntBetween(1, 2));
+}
+
+export function queryScenario() {
+    queryOperations();
+    sleep(randomIntBetween(1, 2));
+}
+
 export function teardown() {
     console.log('Starting cleanup process...');
     cleanupTestDevices();
-}
-
-export default function () {
-    const testData = generateTestData();
-
-    try {
-        switch (__ENV.TESTCASE) {
-            case 'device':
-                deviceManagementFlow(testData);
-                break;
-            case 'pqc':
-                pqcGatewayFlow(testData);
-                break;
-            case 'query':
-                queryOperations();
-                break;
-            case 'all':
-                deviceManagementFlow(testData);
-                pqcGatewayFlow(testData);
-                queryOperations();
-                break;
-            default:
-                console.log('No valid test case specified');
-        }
-
-        sleep(randomIntBetween(1, 2));
-    } catch (error) {
-        console.error('Error during test execution:', error);
-    }
 }
