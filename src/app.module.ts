@@ -24,6 +24,33 @@ import { UsersModule } from './users/users.module';
         database: configService.get('DATABASE_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         synchronize: configService.get<boolean>('DATABASE_SYNCHRONIZE'),
+
+        poolSize: 12,
+        keepConnectionAlive: true,
+
+        maxQueryExecutionTime: 1000,
+        logging: ['error', 'warn', 'schema'],
+
+        extra: {
+          max: 12,
+          min: 2,
+          idleTimeoutMillis: 10000,
+          statement_timeout: 2000,
+          query_timeout: 2000,
+        },
+
+        cache: {
+          duration: 60000,
+          type: 'database',
+          options: {
+            max: 200,
+          },
+        },
+
+        retryAttempts: 3,
+        retryDelay: 3000,
+
+        autoLoadEntities: true,
       }),
       inject: [ConfigService],
     }),
