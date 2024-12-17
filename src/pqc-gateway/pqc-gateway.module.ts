@@ -8,10 +8,11 @@ import { EventsService } from 'src/events/events.service';
 import { LoggerModule } from 'src/logger/logger.module';
 import { PqcGatewayNetwork } from 'src/entities/pqc-gateway-network.entity';
 import { PqcGatewayConnection } from 'src/entities/pqc-gateway-connection.entity';
+import { PqcGatewayInfo } from 'src/entities/pqc-gateway-info.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Device, Event, Alarm, PqcGatewayNetwork, PqcGatewayConnection]),
+    TypeOrmModule.forFeature([Device, Event, Alarm, PqcGatewayNetwork, PqcGatewayConnection, PqcGatewayInfo]),
     DevicesModule,
     LoggerModule,
   ],

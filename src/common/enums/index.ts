@@ -4,3 +4,4 @@ export * from './sort.enum';
 export * from './account-role.enum';
 export * from './event.enum';
 export * from './alarm.enum';
+export * from './pqc-gateway-dispatch.enum';

@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { AlarmType, ErrorCode, EventLevel, EventTag, EventType } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
-import { Alarm, Device, Event } from 'src/entities';
+import { Alarm, Device, Event, PqcGatewayInfo } from 'src/entities';
 import {
   AlarmDto,
   AlarmInfoDto,
@@ -30,6 +30,8 @@ export class PqcGatewayService {
     private pqcNetworkRepository: Repository<PqcGatewayNetwork>,
     @InjectRepository(PqcGatewayConnection)
     private connectionRepository: Repository<PqcGatewayConnection>,
+    @InjectRepository(PqcGatewayInfo)
+    private pqcInfoRepository: Repository<PqcGatewayInfo>,
     private devicesService: DevicesService,
   ) {}
 
@@ -59,6 +61,7 @@ export class PqcGatewayService {
         deviceType: 'pqc-gateway',
       });
 
+      // Update network info
       await this.pqcNetworkRepository.upsert(
         {
           deviceId: statusData.deviceId,
@@ -67,7 +70,22 @@ export class PqcGatewayService {
         ['deviceId'],
       );
 
+      // Update dispatch info
+      await this.pqcInfoRepository.upsert(
+        {
+          deviceId: statusData.deviceId,
+          dispatchResult: statusData.dispatchResult,
+          dispatchDate: statusData.dispatchDate,
+        },
+        ['deviceId'],
+      );
+
+      // Update device connections
       if (statusData.deviceInfo && statusData.deviceInfo.length > 0) {
+        // First, delete old connections for this gateway
+        await this.connectionRepository.delete({ gatewayDeviceId: statusData.deviceId });
+
+        // Then insert new connections
         const connections = statusData.deviceInfo.map((info) => ({
           gatewayDeviceId: statusData.deviceId,
           connectedDeviceId: info.deviceId,
@@ -75,7 +93,7 @@ export class PqcGatewayService {
         await this.connectionRepository.insert(connections);
       }
 
-      // Update other devices and collect deviceCtrl information
+      // Update connected devices and collect deviceCtrl information
       const deviceCtrl = [];
       for (const deviceInfo of statusData.deviceInfo) {
         const updatedDevice = await this.devicesService.updateOrCreateDevice(deviceInfo);

@@ -1,6 +1,7 @@
-import { IsString, IsArray, ValidateNested, IsNotEmpty } from 'class-validator';
+import { IsString, IsArray, ValidateNested, IsNotEmpty, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { DispatchResult } from 'src/common/enums';
 
 class NetworkInfoItemDto {
   @ApiProperty({
@@ -127,6 +128,21 @@ export class PqcGatewayStatusDto {
   @IsString()
   @IsNotEmpty()
   deviceName: string;
+
+  @ApiProperty({
+    description: 'Result of the latest dispatch operation',
+    enum: DispatchResult,
+    example: DispatchResult.SUCCESS,
+  })
+  @IsEnum(DispatchResult)
+  dispatchResult: DispatchResult;
+
+  @ApiProperty({
+    description: 'Date of the latest dispatch operation',
+    example: '24-12-12 16:49:08',
+  })
+  @IsString()
+  dispatchDate: string;
 
   @ApiProperty({
     description: 'Comprehensive network information',

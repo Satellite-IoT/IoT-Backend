@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Alarm, Device } from 'src/entities';
-import { AlarmType, ErrorCode, SortField } from 'src/common/enums';
+import { Alarm, Device, PqcGatewayInfo } from 'src/entities';
+import { AlarmType, DispatchResult, ErrorCode, SortField } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { CryptoService } from './crypto.service';
 import {
@@ -27,6 +27,8 @@ export class DevicesService {
     private pqcNetworkRepository: Repository<PqcGatewayNetwork>,
     @InjectRepository(PqcGatewayConnection)
     private connectionRepository: Repository<PqcGatewayConnection>,
+    @InjectRepository(PqcGatewayInfo)
+    private pqcGatewayInfoRepository: Repository<PqcGatewayInfo>,
     private cryptoService: CryptoService,
   ) {}
 
@@ -63,11 +65,51 @@ export class DevicesService {
   private async getDeviceWithUpdatedStatus(device: Device): Promise<Device> {
     const currentTime = new Date();
     const newStatus = this.getDeviceConnectionStatus(device, currentTime);
+
+    const deviceWithStatus: any = {
+      ...device,
+      status: newStatus,
+    };
+
+    if (device.deviceType === 'pqc-gateway') {
+      // Get network info
+      const networkInfo = await this.pqcNetworkRepository.findOne({
+        where: { deviceId: device.deviceId },
+      });
+      if (networkInfo) {
+        deviceWithStatus.networkInfo = networkInfo.networkInfo;
+      }
+
+      // Get dispatch info
+      const dispatchInfo = await this.pqcGatewayInfoRepository.findOne({
+        where: { deviceId: device.deviceId },
+      });
+      if (dispatchInfo) {
+        deviceWithStatus.dispatchResult = dispatchInfo.dispatchResult;
+        deviceWithStatus.dispatchDate = dispatchInfo.dispatchDate;
+      } else {
+        deviceWithStatus.dispatchResult = DispatchResult.NONE;
+        deviceWithStatus.dispatchDate = '0';
+      }
+    } else {
+      // For non-PQC gateway devices
+      const connection = await this.connectionRepository.findOne({
+        where: { connectedDeviceId: device.deviceId },
+      });
+      if (connection) {
+        deviceWithStatus.connectedGatewayId = connection.gatewayDeviceId;
+      }
+      deviceWithStatus.dispatchResult = null;
+      deviceWithStatus.dispatchDate = null;
+    }
+
+    // Don't save the status if it hasn't changed
     if (device.status !== newStatus) {
       device.status = newStatus;
       await this.deviceRepository.save(device);
     }
-    return device;
+
+    return deviceWithStatus;
   }
 
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
@@ -228,7 +270,6 @@ export class DevicesService {
     // Add sorting
     if (this.isValidSortField(sortBy)) {
       if (['lastAuthenticated', 'createdAt', 'updatedAt'].includes(sortBy)) {
-        // For date fields, use NULLS LAST to handle null values
         queryBuilder
           .orderBy(`CASE WHEN device.${sortBy} IS NULL THEN 1 ELSE 0 END`, 'ASC')
           .addOrderBy(`device.${sortBy}`, sortOrder);
@@ -245,6 +286,18 @@ export class DevicesService {
     const networkInfos = await this.pqcNetworkRepository.find();
     const networkInfoMap = new Map(networkInfos.map((info) => [info.deviceId, info.networkInfo]));
 
+    // Retrieve dispatch information for PQC Gateways
+    const dispatchInfos = await this.pqcGatewayInfoRepository.find();
+    const dispatchInfoMap = new Map(
+      dispatchInfos.map((info) => [
+        info.deviceId,
+        {
+          dispatchResult: info.dispatchResult,
+          dispatchDate: info.dispatchDate,
+        },
+      ]),
+    );
+
     // Retrieve device connection relationships
     const connections = await this.connectionRepository.find();
     const deviceToGatewayMap = new Map(connections.map((conn) => [conn.connectedDeviceId, conn.gatewayDeviceId]));
@@ -256,13 +309,24 @@ export class DevicesService {
         status: this.getDeviceConnectionStatus(device, now),
       };
 
-      // For PQC Gateway, add network information
+      // For PQC Gateway, add network information and dispatch information
       if (device.deviceType === 'pqc-gateway') {
         const networkInfo = networkInfoMap.get(device.deviceId);
+        const dispatchInfo = dispatchInfoMap.get(device.deviceId);
+
         if (networkInfo) {
           devicesWithStatus.networkInfo = networkInfo;
-          devicesWithStatus.connectedGatewayId = null;
         }
+
+        if (dispatchInfo) {
+          devicesWithStatus.dispatchResult = dispatchInfo.dispatchResult;
+          devicesWithStatus.dispatchDate = dispatchInfo.dispatchDate;
+        } else {
+          devicesWithStatus.dispatchResult = DispatchResult.NONE;
+          devicesWithStatus.dispatchDate = '0';
+        }
+
+        devicesWithStatus.connectedGatewayId = null;
       } else {
         // For regular devices, check if connected to a Gateway
         const connectedGatewayId = deviceToGatewayMap.get(device.deviceId);
@@ -270,6 +334,9 @@ export class DevicesService {
           devicesWithStatus.networkInfo = null;
           devicesWithStatus.connectedGatewayId = connectedGatewayId;
         }
+        // Regular devices don't have dispatch information
+        devicesWithStatus.dispatchResult = null;
+        devicesWithStatus.dispatchDate = null;
       }
 
       return devicesWithStatus;
