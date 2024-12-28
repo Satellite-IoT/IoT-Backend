@@ -1,28 +1,21 @@
-import { IsOptional, IsString, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsEnum, Length } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { FlowControlLevel } from 'src/common/enums';
 
 export class UpdateUserDto {
   @ApiPropertyOptional({
-    description: 'The name of the user',
+    description: 'Name of the user',
     example: 'Brian',
   })
   @IsOptional()
   @IsString()
+  @Length(2, 50)
   name?: string;
 
   @ApiPropertyOptional({
-    description: 'The username of the User',
-    example: 'brian123',
-  })
-  @IsOptional()
-  @IsString()
-  username?: string;
-
-  @ApiPropertyOptional({
-    description: 'The flow control level of the user',
+    description: 'Flow control level of the user',
     enum: FlowControlLevel,
-    example: FlowControlLevel.MEDIUM,
+    example: FlowControlLevel.LOW,
   })
   @IsOptional()
   @IsEnum(FlowControlLevel)

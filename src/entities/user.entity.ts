@@ -19,8 +19,8 @@ export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true, nullable: true })
-  username: string;
+  @Column({ unique: true })
+  name: string;
 
   @Column({ nullable: false })
   @Exclude({ toPlainOnly: true })
@@ -28,9 +28,6 @@ export class User {
 
   @Column({ unique: true })
   email: string;
-
-  @Column({ nullable: true, default: '' })
-  name: string;
 
   @Column({
     type: 'enum',
@@ -42,7 +39,7 @@ export class User {
   @Column({
     type: 'enum',
     enum: FlowControlLevel,
-    default: FlowControlLevel.MEDIUM,
+    default: FlowControlLevel.LOW,
   })
   flowControlLevel: FlowControlLevel;
 

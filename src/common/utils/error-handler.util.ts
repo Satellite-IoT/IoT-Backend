@@ -23,6 +23,7 @@ export function mapErrorCodeToHttpStatus(errorCode: ErrorCode): HttpStatus {
       return HttpStatus.NOT_FOUND; // 404
 
     case ErrorCode.DEVICE_ALREADY_EXISTS:
+    case ErrorCode.USER_ALREADY_EXISTS:
     case ErrorCode.DEVICE_ALREADY_REGISTERED:
       return HttpStatus.CONFLICT; // 409
 
