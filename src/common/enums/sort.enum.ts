@@ -19,3 +19,9 @@ export enum UserListSortField {
   CREATED_AT = 'createdAt',
   UPDATED_AT = 'updatedAt',
 }
+
+export enum AdminListSortField {
+  ID = 'id',
+  CREATED_AT = 'createdAt',
+  UPDATED_AT = 'updatedAt',
+}

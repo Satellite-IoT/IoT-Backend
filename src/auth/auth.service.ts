@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthSignInDto, AuthSignUpDto } from './dto/index';
-import { User } from 'src/entities';
+import { Admin } from 'src/entities';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -10,25 +10,25 @@ import { Response } from 'express';
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
+    @InjectRepository(Admin)
+    private adminRepository: Repository<Admin>,
     private jwtService: JwtService,
   ) {}
 
   async signin(signinAuthDto: AuthSignInDto, res: Response) {
     const { email, password } = signinAuthDto;
-    const user = await this.userRepository.findOne({ where: { email } });
+    const admin = await this.adminRepository.findOne({ where: { email } });
 
-    if (!user) {
+    if (!admin) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await user.validatePassword(password);
+    const isPasswordValid = await admin.validatePassword(password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { sub: user.id.toString(), role: 'user' };
+    const payload = { sub: admin.id.toString(), role: 'admin' };
     const access_token = await this.jwtService.signAsync(payload);
 
     res.cookie('iot_token', access_token, {
@@ -50,10 +50,9 @@ export class AuthService {
     return {
       access_token,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
+        id: admin.id,
+        email: admin.email,
+        name: admin.name,
       },
     };
   }
@@ -61,23 +60,22 @@ export class AuthService {
   async signup(signupAuthDto: AuthSignUpDto) {
     const { email, password } = signupAuthDto;
 
-    const isExisted = await this.userRepository.exists({ where: { email } });
+    const isExisted = await this.adminRepository.exists({ where: { email } });
     if (isExisted) {
       throw new BadRequestException('Email already exists');
     }
 
     try {
-      const user = this.userRepository.create({
+      const admin = this.adminRepository.create({
         email,
         password,
-        role: AccountRole.USER,
       });
 
-      await this.userRepository.save(user);
+      await this.adminRepository.save(admin);
 
       return { msg: 'success' };
     } catch (error) {
-      throw new BadRequestException('Failed to create user');
+      throw new BadRequestException('Failed to create admin');
     }
   }
 
