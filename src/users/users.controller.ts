@@ -23,7 +23,7 @@ import { CreateUserDto, GetUserListDto, UpdateUserDto } from './dto';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 
 @ApiTags('users')
-@UseGuards(AuthGuard)
+// @UseGuards(AuthGuard)
 @Controller('users')
 @UsePipes(new ValidationPipe({ transform: true }))
 @UseInterceptors(ClassSerializerInterceptor)

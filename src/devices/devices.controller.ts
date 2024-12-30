@@ -24,7 +24,7 @@ import { LoggerService } from 'src/logger/logger.service';
 import { AuthGuard } from 'src/common/guards/auth.guard';
 
 @ApiTags('devices')
-@UseGuards(AuthGuard)
+// @UseGuards(AuthGuard)
 @Controller('devices')
 @UsePipes(new ValidationPipe({ transform: true }))
 @UseInterceptors(ClassSerializerInterceptor)
