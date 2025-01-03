@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Alarm, Device, PqcGatewayInfo } from 'src/entities';
-import { AlarmType, DispatchResult, ErrorCode, SortField } from 'src/common/enums';
+import { In, Repository } from 'typeorm';
+import { Alarm, Device, DeviceUser, PqcGatewayInfo, User } from 'src/entities';
+import { AlarmType, DispatchResult, ErrorCode, FlowControlLevel, SortField } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { CryptoService } from './crypto.service';
 import {
@@ -15,12 +15,17 @@ import {
 import { PqcGatewayStatusDto } from 'src/pqc-gateway/dto';
 import { PqcGatewayNetwork } from 'src/entities/pqc-gateway-network.entity';
 import { PqcGatewayConnection } from 'src/entities/pqc-gateway-connection.entity';
+import { DeviceResponse } from './types/device.type';
 
 @Injectable()
 export class DevicesService {
   constructor(
     @InjectRepository(Device)
     private deviceRepository: Repository<Device>,
+    @InjectRepository(DeviceUser)
+    private deviceUserRepository: Repository<DeviceUser>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     @InjectRepository(Alarm)
     private alarmRepository: Repository<Alarm>,
     @InjectRepository(PqcGatewayNetwork)
@@ -110,6 +115,24 @@ export class DevicesService {
     }
 
     return deviceWithStatus;
+  }
+
+  private async getDeviceFlowControlLevel(deviceId: string): Promise<FlowControlLevel> {
+    const deviceUser = await this.deviceUserRepository.findOne({
+      where: { deviceId },
+      order: { lastSeenAt: 'DESC' },
+    });
+
+    if (!deviceUser) {
+      return FlowControlLevel.LOW;
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { name: deviceUser.loginUser },
+      select: ['flowControlLevel'],
+    });
+
+    return user?.flowControlLevel || FlowControlLevel.LOW;
   }
 
   async register(registerDeviceDto: RegisterDeviceDto): Promise<ServiceResult<Device>> {
@@ -227,7 +250,7 @@ export class DevicesService {
     }
   }
 
-  async getDeviceById(id: number): Promise<ServiceResult<Device>> {
+  async getDeviceById(id: number): Promise<ServiceResult<DeviceResponse>> {
     const device = await this.deviceRepository.findOne({ where: { id } });
     if (!device) {
       return {
@@ -236,11 +259,21 @@ export class DevicesService {
         errorCode: ErrorCode.DEVICE_NOT_FOUND,
       };
     }
+
+    const flowControlLevel = await this.getDeviceFlowControlLevel(device.deviceId);
     const updatedDevice = await this.getDeviceWithUpdatedStatus(device);
-    return { success: true, message: 'Device found', data: updatedDevice };
+
+    return {
+      success: true,
+      message: 'Device found',
+      data: {
+        ...updatedDevice,
+        flowControlLevel,
+      },
+    };
   }
 
-  async getDeviceByDeviceId(deviceId: string): Promise<ServiceResult<Device>> {
+  async getDeviceByDeviceId(deviceId: string): Promise<ServiceResult<DeviceResponse>> {
     const device = await this.deviceRepository.findOne({ where: { deviceId } });
     if (!device) {
       return {
@@ -249,8 +282,18 @@ export class DevicesService {
         errorCode: ErrorCode.DEVICE_NOT_FOUND,
       };
     }
+
+    const flowControlLevel = await this.getDeviceFlowControlLevel(deviceId);
     const updatedDevice = await this.getDeviceWithUpdatedStatus(device);
-    return { success: true, message: 'Device found', data: updatedDevice };
+
+    return {
+      success: true,
+      message: 'Device found',
+      data: {
+        ...updatedDevice,
+        flowControlLevel,
+      },
+    };
   }
 
   async getDeviceList(
@@ -282,65 +325,36 @@ export class DevicesService {
 
     const [devices, total] = await queryBuilder.skip(skip).take(limit).getManyAndCount();
 
-    // Retrieve network information for PQC Gateways
-    const networkInfos = await this.pqcNetworkRepository.find();
-    const networkInfoMap = new Map(networkInfos.map((info) => [info.deviceId, info.networkInfo]));
+    const deviceIds = devices.map((device) => device.deviceId);
 
-    // Retrieve dispatch information for PQC Gateways
-    const dispatchInfos = await this.pqcGatewayInfoRepository.find();
-    const dispatchInfoMap = new Map(
-      dispatchInfos.map((info) => [
-        info.deviceId,
-        {
-          dispatchResult: info.dispatchResult,
-          dispatchDate: info.dispatchDate,
-        },
-      ]),
-    );
-
-    // Retrieve device connection relationships
-    const connections = await this.connectionRepository.find();
-    const deviceToGatewayMap = new Map(connections.map((conn) => [conn.connectedDeviceId, conn.gatewayDeviceId]));
-
-    const now = new Date();
-    const devicesWithStatus = devices.map((device) => {
-      const devicesWithStatus: any = {
-        ...device,
-        status: this.getDeviceConnectionStatus(device, now),
-      };
-
-      // For PQC Gateway, add network information and dispatch information
-      if (device.deviceType === 'pqc-gateway') {
-        const networkInfo = networkInfoMap.get(device.deviceId);
-        const dispatchInfo = dispatchInfoMap.get(device.deviceId);
-
-        if (networkInfo) {
-          devicesWithStatus.networkInfo = networkInfo;
-        }
-
-        if (dispatchInfo) {
-          devicesWithStatus.dispatchResult = dispatchInfo.dispatchResult;
-          devicesWithStatus.dispatchDate = dispatchInfo.dispatchDate;
-        } else {
-          devicesWithStatus.dispatchResult = DispatchResult.NONE;
-          devicesWithStatus.dispatchDate = '0';
-        }
-
-        devicesWithStatus.connectedGatewayId = null;
-      } else {
-        // For regular devices, check if connected to a Gateway
-        const connectedGatewayId = deviceToGatewayMap.get(device.deviceId);
-        if (connectedGatewayId) {
-          devicesWithStatus.networkInfo = null;
-          devicesWithStatus.connectedGatewayId = connectedGatewayId;
-        }
-        // Regular devices don't have dispatch information
-        devicesWithStatus.dispatchResult = null;
-        devicesWithStatus.dispatchDate = null;
-      }
-
-      return devicesWithStatus;
+    const deviceUsers = await this.deviceUserRepository.find({
+      where: { deviceId: In(deviceIds) },
     });
+
+    const userNames = deviceUsers.map((du) => du.loginUser);
+    const users =
+      userNames.length > 0
+        ? await this.userRepository.find({
+            where: { name: In(userNames) },
+            select: ['name', 'flowControlLevel'],
+          })
+        : [];
+
+    const userMap = new Map(users.map((user) => [user.name, user.flowControlLevel]));
+    const deviceUserMap = new Map(deviceUsers.map((du) => [du.deviceId, du.loginUser]));
+
+    const devicesWithStatus = await Promise.all(
+      devices.map(async (device) => {
+        const updatedDevice = await this.getDeviceWithUpdatedStatus(device);
+        const loginUser = deviceUserMap.get(device.deviceId);
+        const flowControlLevel = loginUser ? userMap.get(loginUser) || FlowControlLevel.LOW : FlowControlLevel.LOW;
+
+        return {
+          ...updatedDevice,
+          flowControlLevel,
+        };
+      }),
+    );
 
     return {
       success: true,
@@ -408,11 +422,27 @@ export class DevicesService {
       const periodAgo = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
 
       const devices = await this.deviceRepository.find();
-
       const devicesWithCurrentStatus = devices.map((device) => ({
         ...device,
         currentStatus: this.getDeviceConnectionStatus(device, now),
       }));
+
+      const deviceIds = devices.map((device) => device.deviceId);
+      const deviceUsers = await this.deviceUserRepository.find({
+        where: { deviceId: In(deviceIds) },
+      });
+
+      const userNames = deviceUsers.map((du) => du.loginUser);
+      const users =
+        userNames.length > 0
+          ? await this.userRepository.find({
+              where: { name: In(userNames) },
+              select: ['name', 'flowControlLevel'],
+            })
+          : [];
+
+      const userMap = new Map(users.map((user) => [user.name, user.flowControlLevel]));
+      const deviceUserMap = new Map(deviceUsers.map((du) => [du.deviceId, du.loginUser]));
 
       const mainStats = {
         totalDevices: devices.length,
@@ -433,12 +463,13 @@ export class DevicesService {
         return acc;
       }, {});
 
-      const flowControlDistribution = devicesWithCurrentStatus.reduce(
+      const flowControlDistribution = devices.reduce(
         (acc, device) => {
-          if (device.flowControlLevel) {
-            const level = device.flowControlLevel.toLowerCase();
-            acc[level] = (acc[level] || 0) + 1;
-          }
+          const loginUser = deviceUserMap.get(device.deviceId);
+          const level = loginUser
+            ? (userMap.get(loginUser) || FlowControlLevel.LOW).toLowerCase()
+            : FlowControlLevel.LOW.toLowerCase();
+          acc[level] = (acc[level] || 0) + 1;
           return acc;
         },
         { high: 0, medium: 0, low: 0 },

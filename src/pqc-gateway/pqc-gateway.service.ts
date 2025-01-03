@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { AlarmType, ErrorCode, EventLevel, EventTag, EventType } from 'src/common/enums';
+import { In, Repository } from 'typeorm';
+import { AlarmType, ErrorCode, EventLevel, EventTag, EventType, FlowControlLevel } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
-import { Alarm, Device, Event, PqcGatewayInfo } from 'src/entities';
+import { Alarm, Device, DeviceUser, Event, PqcGatewayInfo, User } from 'src/entities';
 import {
   AlarmDto,
   AlarmInfoDto,
@@ -22,6 +22,10 @@ export class PqcGatewayService {
   constructor(
     @InjectRepository(Device)
     private deviceRepository: Repository<Device>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(DeviceUser)
+    private deviceUserRepository: Repository<DeviceUser>,
     @InjectRepository(Event)
     private eventRepository: Repository<Event>,
     @InjectRepository(Alarm)
@@ -62,54 +66,93 @@ export class PqcGatewayService {
       });
 
       // Update network info
-      await this.pqcNetworkRepository.upsert(
-        {
-          deviceId: statusData.deviceId,
-          networkInfo: statusData.networkInfo,
-        },
-        ['deviceId'],
-      );
-
-      // Update dispatch info
-      await this.pqcInfoRepository.upsert(
-        {
-          deviceId: statusData.deviceId,
-          dispatchResult: statusData.dispatchResult,
-          dispatchDate: statusData.dispatchDate,
-        },
-        ['deviceId'],
-      );
+      await Promise.all([
+        this.pqcNetworkRepository.upsert(
+          {
+            deviceId: statusData.deviceId,
+            networkInfo: statusData.networkInfo,
+          },
+          ['deviceId'],
+        ),
+        // Update dispatch info
+        this.pqcInfoRepository.upsert(
+          {
+            deviceId: statusData.deviceId,
+            dispatchResult: statusData.dispatchResult,
+            dispatchDate: statusData.dispatchDate,
+          },
+          ['deviceId'],
+        ),
+      ]);
 
       // Update device connections
       if (statusData.deviceInfo && statusData.deviceInfo.length > 0) {
-        // First, delete old connections for this gateway
+        const deviceIds = statusData.deviceInfo.map((info) => info.deviceId);
+        const userNames = statusData.deviceInfo.filter((info) => info.loginUser).map((info) => info.loginUser);
+
+        const users =
+          userNames.length > 0
+            ? await this.userRepository.find({
+                where: { name: In(userNames) },
+                select: ['name', 'flowControlLevel'],
+              })
+            : [];
+        const userMap = new Map(users.map((user) => [user.name, user.flowControlLevel]));
+
         await this.connectionRepository.delete({ gatewayDeviceId: statusData.deviceId });
+        await this.connectionRepository.insert(
+          statusData.deviceInfo.map((info) => ({
+            gatewayDeviceId: statusData.deviceId,
+            connectedDeviceId: info.deviceId,
+          })),
+        );
 
-        // Then insert new connections
-        const connections = statusData.deviceInfo.map((info) => ({
-          gatewayDeviceId: statusData.deviceId,
-          connectedDeviceId: info.deviceId,
-        }));
-        await this.connectionRepository.insert(connections);
-      }
+        await this.deviceUserRepository.delete({ deviceId: In(deviceIds) });
+        const deviceUsers = statusData.deviceInfo
+          .filter((info) => info.loginUser)
+          .map((info) => ({
+            deviceId: info.deviceId,
+            loginUser: info.loginUser,
+            lastSeenAt: new Date(),
+          }));
+        if (deviceUsers.length > 0) {
+          await this.deviceUserRepository.insert(deviceUsers);
+        }
 
-      // Update connected devices and collect deviceCtrl information
-      const deviceCtrl = [];
-      for (const deviceInfo of statusData.deviceInfo) {
-        const updatedDevice = await this.devicesService.updateOrCreateDevice(deviceInfo);
-        deviceCtrl.push({
-          deviceId: updatedDevice.deviceId,
-          ipAddr: updatedDevice.ipAddr,
-          bandwidth: updatedDevice.flowControlLevel,
-          status: updatedDevice.status,
-          isAuthenticated: updatedDevice.isAuthenticated,
-        });
+        // Update connected devices and collect deviceCtrl information
+        const deviceCtrl = [];
+        for (const deviceInfo of statusData.deviceInfo) {
+          const updatedDevice = await this.devicesService.updateOrCreateDevice({
+            deviceId: deviceInfo.deviceId,
+            deviceType: deviceInfo.deviceType,
+            ipAddr: deviceInfo.ipAddr,
+            host: deviceInfo.host,
+          });
+
+          const bandwidth = deviceInfo.loginUser
+            ? userMap.get(deviceInfo.loginUser) || FlowControlLevel.LOW
+            : FlowControlLevel.LOW;
+
+          deviceCtrl.push({
+            deviceId: updatedDevice.deviceId,
+            ipAddr: updatedDevice.ipAddr,
+            bandwidth,
+            status: updatedDevice.status,
+            isAuthenticated: updatedDevice.isAuthenticated,
+          });
+        }
+
+        return {
+          success: true,
+          message: 'Device status updated successfully',
+          data: { deviceCtrl },
+        };
       }
 
       return {
         success: true,
         message: 'Device status updated successfully',
-        data: { deviceCtrl },
+        data: { deviceCtrl: [] },
       };
     } catch (error) {
       console.error('Error updating device status:', error);
