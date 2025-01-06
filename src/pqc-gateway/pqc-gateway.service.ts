@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
-import { AlarmType, ErrorCode, EventLevel, EventTag, EventType, FlowControlLevel } from 'src/common/enums';
+import { In, Repository, Like } from 'typeorm';
+import { AlarmStatus, AlarmType, ErrorCode, EventLevel, EventTag, EventType, FlowControlLevel } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
 import { Alarm, Device, DeviceUser, Event, PqcGatewayInfo, User } from 'src/entities';
@@ -72,7 +72,7 @@ export class PqcGatewayService {
       const currentDeviceIds = new Set(currentConnections.map((conn) => conn.connectedDeviceId));
       const newDeviceIds = new Set(statusData.deviceInfo?.map((info) => info.deviceId) || []);
 
-       // Update network info
+      // Update network info
       await Promise.all([
         this.pqcNetworkRepository.upsert(
           {
@@ -113,11 +113,7 @@ export class PqcGatewayService {
           });
 
           if (!existingDevice || !existingDevice.isRegistered) {
-            await this.createAlarm({
-              alarmType: AlarmType.WARNING,
-              alarmDescription: `Unauthorized device connected to PQC Gateway - [${deviceInfo.deviceId}] IP: ${deviceInfo.ipAddr}`,
-              deviceId: deviceInfo.deviceId,
-            });
+            await this.createUnauthorizedDeviceAlarm(deviceInfo.deviceId);
           }
 
           const updatedDevice = await this.devicesService.updateOrCreateDevice({
@@ -330,5 +326,24 @@ export class PqcGatewayService {
   private async createAlarm(createAlarmDto: CreateAlarmDto): Promise<Alarm> {
     const alarm = this.alarmRepository.create(createAlarmDto);
     return this.alarmRepository.save(alarm);
+  }
+
+  private async createUnauthorizedDeviceAlarm(deviceId: string): Promise<void> {
+    const existingAlarm = await this.alarmRepository.findOne({
+      where: {
+        deviceId: deviceId,
+        alarmType: AlarmType.WARNING,
+        alarmStatus: AlarmStatus.ACTIVE,
+        alarmDescription: Like(`Unauthorized device connected to PQC Gateway - [${deviceId}]`),
+      },
+    });
+
+    if (!existingAlarm) {
+      await this.createAlarm({
+        alarmType: AlarmType.WARNING,
+        alarmDescription: `Unauthorized device connected to PQC Gateway - [${deviceId}]`,
+        deviceId: deviceId,
+      });
+    }
   }
 }
