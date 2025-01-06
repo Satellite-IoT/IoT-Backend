@@ -30,7 +30,7 @@ export class Alarm {
   @Column('text')
   deviceId: string;
 
-  @Column('text')
+  @Column('text', { nullable: true })
   deviceName: string;
 
   @Column('text', { nullable: true })

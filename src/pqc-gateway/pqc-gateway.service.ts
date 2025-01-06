@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { AlarmType, ErrorCode, EventLevel, EventTag, EventType } from 'src/common/enums';
+import { In, Repository } from 'typeorm';
+import { AlarmType, ErrorCode, EventLevel, EventTag, EventType, FlowControlLevel } from 'src/common/enums';
 import { ServiceResult } from 'src/common/types';
 import { DevicesService } from 'src/devices/devices.service';
-import { Alarm, Device, Event, PqcGatewayInfo } from 'src/entities';
+import { Alarm, Device, DeviceUser, Event, PqcGatewayInfo, User } from 'src/entities';
 import {
   AlarmDto,
   AlarmInfoDto,
@@ -22,6 +22,10 @@ export class PqcGatewayService {
   constructor(
     @InjectRepository(Device)
     private deviceRepository: Repository<Device>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
+    @InjectRepository(DeviceUser)
+    private deviceUserRepository: Repository<DeviceUser>,
     @InjectRepository(Event)
     private eventRepository: Repository<Event>,
     @InjectRepository(Alarm)
@@ -61,49 +65,118 @@ export class PqcGatewayService {
         deviceType: 'pqc-gateway',
       });
 
-      // Update network info
-      await this.pqcNetworkRepository.upsert(
-        {
-          deviceId: statusData.deviceId,
-          networkInfo: statusData.networkInfo,
-        },
-        ['deviceId'],
-      );
+      // Get current connections
+      const currentConnections = await this.connectionRepository.find({
+        where: { gatewayDeviceId: statusData.deviceId },
+      });
+      const currentDeviceIds = new Set(currentConnections.map((conn) => conn.connectedDeviceId));
+      const newDeviceIds = new Set(statusData.deviceInfo?.map((info) => info.deviceId) || []);
 
-      // Update dispatch info
-      await this.pqcInfoRepository.upsert(
-        {
-          deviceId: statusData.deviceId,
-          dispatchResult: statusData.dispatchResult,
-          dispatchDate: statusData.dispatchDate,
-        },
-        ['deviceId'],
-      );
+       // Update network info
+      await Promise.all([
+        this.pqcNetworkRepository.upsert(
+          {
+            deviceId: statusData.deviceId,
+            networkInfo: statusData.networkInfo,
+          },
+          ['deviceId'],
+        ),
+        // Update dispatch info
+        this.pqcInfoRepository.upsert(
+          {
+            deviceId: statusData.deviceId,
+            dispatchResult: statusData.dispatchResult,
+            dispatchDate: statusData.dispatchDate,
+          },
+          ['deviceId'],
+        ),
+      ]);
 
-      // Update device connections
+      const deviceCtrl = [];
+
       if (statusData.deviceInfo && statusData.deviceInfo.length > 0) {
-        // First, delete old connections for this gateway
-        await this.connectionRepository.delete({ gatewayDeviceId: statusData.deviceId });
+        const deviceIds = statusData.deviceInfo.map((info) => info.deviceId);
+        const userNames = statusData.deviceInfo.filter((info) => info.loginUser).map((info) => info.loginUser);
 
-        // Then insert new connections
-        const connections = statusData.deviceInfo.map((info) => ({
-          gatewayDeviceId: statusData.deviceId,
-          connectedDeviceId: info.deviceId,
-        }));
-        await this.connectionRepository.insert(connections);
+        const users =
+          userNames.length > 0
+            ? await this.userRepository.find({
+                where: { name: In(userNames) },
+                select: ['name', 'flowControlLevel'],
+              })
+            : [];
+        const userMap = new Map(users.map((user) => [user.name, user.flowControlLevel]));
+
+        for (const deviceInfo of statusData.deviceInfo) {
+          const existingDevice = await this.deviceRepository.findOne({
+            where: { deviceId: deviceInfo.deviceId },
+          });
+
+          if (!existingDevice || !existingDevice.isRegistered) {
+            await this.createAlarm({
+              alarmType: AlarmType.WARNING,
+              alarmDescription: `Unauthorized device connected to PQC Gateway - [${deviceInfo.deviceId}] IP: ${deviceInfo.ipAddr}`,
+              deviceId: deviceInfo.deviceId,
+            });
+          }
+
+          const updatedDevice = await this.devicesService.updateOrCreateDevice({
+            deviceId: deviceInfo.deviceId,
+            deviceType: deviceInfo.deviceType,
+            ipAddr: deviceInfo.ipAddr,
+            host: deviceInfo.host,
+          });
+
+          const bandwidth = deviceInfo.loginUser
+            ? userMap.get(deviceInfo.loginUser) || FlowControlLevel.LOW
+            : FlowControlLevel.LOW;
+
+          deviceCtrl.push({
+            deviceId: updatedDevice.deviceId,
+            ipAddr: updatedDevice.ipAddr,
+            bandwidth,
+            status: updatedDevice.status,
+            isAuthenticated: updatedDevice.isAuthenticated,
+          });
+        }
+
+        await this.deviceUserRepository.delete({ deviceId: In(deviceIds) });
+        const deviceUsers = statusData.deviceInfo
+          .filter((info) => info.loginUser)
+          .map((info) => ({
+            deviceId: info.deviceId,
+            loginUser: info.loginUser,
+            lastSeenAt: new Date(),
+          }));
+        if (deviceUsers.length > 0) {
+          await this.deviceUserRepository.insert(deviceUsers);
+        }
       }
 
-      // Update connected devices and collect deviceCtrl information
-      const deviceCtrl = [];
-      for (const deviceInfo of statusData.deviceInfo) {
-        const updatedDevice = await this.devicesService.updateOrCreateDevice(deviceInfo);
-        deviceCtrl.push({
-          deviceId: updatedDevice.deviceId,
-          ipAddr: updatedDevice.ipAddr,
-          bandwidth: updatedDevice.flowControlLevel,
-          status: updatedDevice.status,
-          isAuthenticated: updatedDevice.isAuthenticated,
-        });
+      for (const connectedDeviceId of currentDeviceIds) {
+        if (!newDeviceIds.has(connectedDeviceId)) {
+          const device = await this.deviceRepository.findOne({
+            where: { deviceId: connectedDeviceId },
+          });
+
+          if (device && device.isRegistered) {
+            await this.createAlarm({
+              alarmType: AlarmType.WARNING,
+              alarmDescription: `Authorized device disconnected from PQC Gateway - [${device.deviceId}]`,
+              deviceId: device.deviceId,
+            });
+          }
+        }
+      }
+
+      await this.connectionRepository.delete({ gatewayDeviceId: statusData.deviceId });
+      if (statusData.deviceInfo && statusData.deviceInfo.length > 0) {
+        await this.connectionRepository.insert(
+          statusData.deviceInfo.map((info) => ({
+            gatewayDeviceId: statusData.deviceId,
+            connectedDeviceId: info.deviceId,
+          })),
+        );
       }
 
       return {
@@ -146,7 +219,6 @@ export class PqcGatewayService {
             alarmType: alarmItem.alarmType,
             alarmDescription: alarmItem.alarmDescription,
             deviceId: alarmData.deviceId,
-            deviceName: alarmData.deviceName,
           };
 
           const alarm = await this.createAlarm(createAlarmDto);

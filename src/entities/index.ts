@@ -4,3 +4,4 @@ export * from './user.entity';
 export * from './admin.entity';
 export * from './alarm.entity';
 export * from './pqc-gateway-info.entity';
+export * from './device-user.entity';

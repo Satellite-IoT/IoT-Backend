@@ -20,21 +20,11 @@ export class Device {
   @Column({ nullable: true })
   deviceName: string;
 
-  @Column({
-    type: 'enum',
-    enum: FlowControlLevel,
-    default: FlowControlLevel.MEDIUM,
-  })
-  flowControlLevel: FlowControlLevel;
-
   @Column({ nullable: true })
   ipAddr: string;
 
   @Column({ nullable: true })
   host: string;
-
-  @Column({ nullable: true })
-  loginUser: string;
 
   @Column({ default: 'unknown' })
   status: string;
