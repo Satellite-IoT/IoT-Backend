@@ -147,7 +147,7 @@ export class PqcGatewayController {
     }
   }
 
-  @UseGuards(AuthGuard)
+  // @UseGuards(AuthGuard)
   @Get('alarms')
   @ApiOperation({ summary: 'Get PQC Gateway alarms with pagination, filtering, and sorting' })
   @ApiQuery({ name: 'page', required: false, type: Number })

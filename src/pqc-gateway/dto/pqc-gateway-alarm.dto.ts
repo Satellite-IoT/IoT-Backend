@@ -66,6 +66,6 @@ export class CreateAlarmDto {
   @IsString()
   deviceId: string;
 
-  @IsString()
-  deviceName: string;
+  // @IsString()
+  // deviceName: string;
 }

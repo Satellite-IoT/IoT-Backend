@@ -16,7 +16,7 @@ export class AuthController {
     return await this.authService.signin(signinDto, res);
   }
 
-  @UseGuards(AuthGuard)
+  // @UseGuards(AuthGuard)
   @Post('signup')
   @Header('Content-Type', 'application/json')
   async signup(@Body() signupDto: AuthSignUpDto) {
