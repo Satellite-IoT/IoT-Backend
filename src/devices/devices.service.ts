@@ -102,7 +102,13 @@ export class DevicesService {
         where: { connectedDeviceId: device.deviceId },
       });
       if (connection) {
+        const gateway = await this.deviceRepository.findOne({
+          where: { deviceId: connection.gatewayDeviceId },
+          select: ['deviceId', 'deviceName'],
+        });
+
         deviceWithStatus.connectedGatewayId = connection.gatewayDeviceId;
+        deviceWithStatus.connectedGatewayName = gateway?.deviceName;
       }
       deviceWithStatus.dispatchResult = null;
       deviceWithStatus.dispatchDate = null;
