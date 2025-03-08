@@ -109,6 +109,9 @@ export class DevicesService {
 
         deviceWithStatus.connectedGatewayId = connection.gatewayDeviceId;
         deviceWithStatus.connectedGatewayName = gateway?.deviceName;
+      } else {
+        deviceWithStatus.connectedGatewayId = null;
+        deviceWithStatus.connectedGatewayName = null;
       }
       deviceWithStatus.dispatchResult = null;
       deviceWithStatus.dispatchDate = null;
