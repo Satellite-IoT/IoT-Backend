@@ -15,8 +15,8 @@ export class GetUserListDto {
   @IsInt()
   @Min(1)
   @Type(() => Number)
-  @ApiPropertyOptional({ description: 'Number of items per page', default: 10 })
-  limit?: number = 10;
+  @ApiPropertyOptional({ description: 'Number of items per page', default: 10000 })
+  limit?: number = 10000;
 
   @IsOptional()
   @IsEnum(UserListSortField)
